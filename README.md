@@ -58,7 +58,7 @@ The plugin is **completely flexible** with column names. You can use any column 
 ### Example CSV Structure
 
 ```csv
-URL,TheSlug,Page Title,Description,Hero Text
+URL,Slug,Page Title,Hero Text,Description
 https://site.com/services,services,Services,Our services,Welcome to Services
 https://site.com/services/dental,dental,Dental Services,Dental care,Quality Dental Care
 https://site.com/services/dental/cleaning,cleaning,Teeth Cleaning,Professional cleaning,Professional Teeth Cleaning
