@@ -1,6 +1,6 @@
 # Simple SEO Import
 
-A powerful Craft CMS plugin for importing hierarchical entries from CSV files with an intuitive drag-and-drop field mapping interface.
+A Craft CMS plugin for importing SEO metada from CSV files and automatically creating entries, with an intuitive drag-and-drop field mapping interface and SEOmatic integration.
 
 ## Features
 
