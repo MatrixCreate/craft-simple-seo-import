@@ -1,0 +1,1370 @@
+{% extends "_layouts/cp.twig" %}
+{% import "_includes/forms" as forms %}
+{% set title = "Simple SEO Import"|t('simple-seo-import') %}
+{% set csrfToken = craft.app.request.csrfToken %}
+
+{% block content %}
+<div id="csv-importer-app" class="seo-importer">
+    <div class="step-indicator">
+        <div class="steps">
+            <div class="progress-line">
+                <div class="progress-line-fill"></div>
+            </div>
+            <div class="step active" data-step="1">
+                <span class="step-number">1</span>
+                <span class="step-label">{{ 'Upload CSV'|t('simple-seo-import') }}</span>
+            </div>
+            <div class="step" data-step="2">
+                <span class="step-number">2</span>
+                <span class="step-label">{{ 'Map Fields'|t('simple-seo-import') }}</span>
+            </div>
+            <div class="step" data-step="3">
+                <span class="step-number">3</span>
+                <span class="step-label">{{ 'Preview & Import'|t('simple-seo-import') }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Message (Step 3 only) -->
+    <div class="success-message hidden" id="success-message">
+        <div class="success-content">
+            <div class="success-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10" fill="currentColor" stroke="none"/>
+                    <path d="M9 12l2 2 4-4" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <span>{{ 'Ready For Import!'|t('simple-seo-import') }}</span>
+        </div>
+    </div>
+
+    <!-- Top Navigation buttons (Step 3 only) -->
+    <div class="top-navigation hidden" id="top-navigation">
+        <div class="navigation-left">
+            <button type="button" class="btn secondary" id="top-prev-step">
+                {{ 'Previous'|t('simple-seo-import') }}
+            </button>
+        </div>
+        <div class="navigation-right">
+            <button type="button" class="btn submit" id="top-import-btn">
+                {{ 'Import Entries'|t('simple-seo-import') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- CSV Preview Data (moved to top) -->
+    <div class="csv-preview-section hidden" id="csv-preview-section">
+        <div class="heading">
+            <h2>{{ 'CSV Preview'|t('simple-seo-import') }}</h2>
+            <div class="instructions">{{ 'The following data was recognised in your CSV file.'|t('simple-seo-import') }}</div>
+        </div>
+        <div id="csv-preview" class="csv-preview">
+            <!-- CSV preview will be populated here -->
+        </div>
+    </div>
+
+    <!-- Step 1: Upload CSV -->
+    <div class="step-content" data-step="1">
+        <div class="field">
+            <div class="heading">
+                <h2>{{ 'Upload CSV File'|t('simple-seo-import') }} <span class="required">*</span></h2>
+                <div class="instructions">{{ 'Upload a CSV file with columns for: URL, Slug, Page Title, H1, SEO Description. Columns can be mapped in the next step.'|t('simple-seo-import') }}</div>
+            </div>
+            <div class="csv-upload-area">
+                <input type="file" id="csv-file" accept=".csv" class="hidden">
+                <div class="upload-dropzone" id="upload-dropzone">
+                    <div class="upload-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10,9 9,9 8,9"/>
+                        </svg>
+                    </div>
+                    <p class="upload-text">{{ 'Drop your CSV file here or click to browse'|t('simple-seo-import') }}</p>
+                    <p class="upload-hint">{{ 'Supported formats: .csv (Max 10MB)'|t('simple-seo-import') }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: Field Mapping -->
+    <div class="step-content hidden" data-step="2">
+        <div class="field">
+            <div class="heading">
+                <h2>{{ 'Select Base Entry'|t('simple-seo-import') }} </h2>
+                <div class="instructions">{{ 'Choose an existing entry to use as the template for new entries.'|t('simple-seo-import') }}</div>
+            </div>
+            <div class="heading">
+                <label id="base-entry-label" for="base-entry">{{ 'Base Entry'|t('simple-seo-import') }}<span class="visually-hidden">Required</span><span class="required" aria-hidden="true"></span></label><span class="required">*</span>
+            </div>
+            <div class="base-entry-selector">
+                {{ forms.elementSelectField({
+                    id: 'base-entry',
+                    name: 'baseEntry',
+                    elementType: 'craft\\elements\\Entry',
+                    limit: 1,
+                    required: true
+                }) }}
+            </div>
+        </div>
+
+        <div class="field">
+            <div class="heading">
+                <h2>{{ 'Import Options'|t('simple-seo-import') }}</h2>
+            </div>
+            {{ forms.checkboxField({
+                id: 'skip-first-row',
+                name: 'skipFirstRow',
+                label: 'Skip first row (homepage)'|t('simple-seo-import'),
+                instructions: 'Check this if the first row is the homepage, which should be handled separately as a Single entry type.'|t('simple-seo-import')
+            }) }}
+        </div>
+
+        <div class="field">
+            <div class="heading">
+                <h2>{{ 'Map CSV Fields'|t('simple-seo-import') }} </h2>
+                <div class="instructions">{{ 'Drag CSV fields from the left to the target fields on the right. Double clicking works too.'|t('simple-seo-import') }}</div>
+            </div>
+            <div class="field-mapping-container">
+                <div class="csv-fields">
+                    <h3>{{ 'CSV File Fields'|t('simple-seo-import') }} <span class="required">*</span></h3>
+                    <div id="csv-fields-list" class="fields-list">
+                        <!-- CSV fields will be populated here -->
+                    </div>
+                </div>
+                <div class="target-fields">
+                    <h3>{{ 'Target Entry Fields'|t('simple-seo-import') }} <span class="required">*</span></h3>
+                    <div id="target-fields-list" class="fields-list">
+                        <div class="target-field" data-target="hierarchy.address">
+                            <span class="field-label">{{ 'URL'|t('simple-seo-import') }}</span>
+                            <div class="field-drop-zone">{{ 'Drop field here'|t('simple-seo-import') }}</div>
+                        </div>
+                        <div class="target-field" data-target="entry.slug">
+                            <span class="field-label">{{ 'Entry Slug'|t('simple-seo-import') }}</span>
+                            <div class="field-drop-zone">{{ 'Drop field here'|t('simple-seo-import') }}</div>
+                        </div>
+                        <div class="target-field" data-target="entry.title">
+                            <span class="field-label">{{ 'Entry Title'|t('simple-seo-import') }}</span>
+                            <div class="field-drop-zone">{{ 'Drop field here'|t('simple-seo-import') }}</div>
+                        </div>
+                        <div class="target-field" data-target="entry.heroTitle">
+                            <span class="field-label">{{ 'Hero Title'|t('simple-seo-import') }}</span>
+                            <div class="field-drop-zone">{{ 'Drop field here'|t('simple-seo-import') }}</div>
+                        </div>
+                        <div class="target-field" data-target="seomatic.meta.description">
+                            <span class="field-label">{{ 'SEO Meta Description'|t('simple-seo-import') }}</span>
+                            <div class="field-drop-zone">{{ 'Drop field here'|t('simple-seo-import') }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Step 3: Preview & Import -->
+    <div class="step-content hidden" data-step="3">
+        <div class="field">
+            <div class="heading">
+                <h2>{{ 'Preview Import'|t('simple-seo-import') }}</h2>
+                <div class="instructions">{{ 'Review the new entry structure before importing.'|t('simple-seo-import') }}</div>
+            </div>
+            <div id="import-preview" class="import-preview">
+                <!-- Import preview will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation buttons -->
+    <div class="step-navigation">
+        <div class="navigation-left">
+            <button type="button" class="btn secondary" id="prev-step" style="display: none;">
+                {{ 'Previous'|t('simple-seo-import') }}
+            </button>
+        </div>
+        <div class="navigation-right">
+            <span class="error-message hidden" id="validation-error">{{ 'Complete the required fields'|t('simple-seo-import') }}</span>
+            <button type="button" class="btn submit" id="next-step">
+                {{ 'Next'|t('simple-seo-import') }}
+            </button>
+            <button type="button" class="btn submit" id="import-btn" style="display: none;">
+                {{ 'Import Entries'|t('simple-seo-import') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay hidden" id="loading-overlay">
+        <div class="spinner"></div>
+        <p>{{ 'Processing...'|t('simple-seo-import') }}</p>
+    </div>
+</div>
+
+<style>
+.seo-importer {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.step-indicator {
+    margin-bottom: 2rem;
+}
+
+.steps {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    align-items: center;
+}
+
+.progress-line {
+    position: absolute;
+    top: 20px;
+    left: calc(100% / 6);
+    right: calc(100% / 6);
+    height: 2px;
+    background: #e3e5e8;
+    z-index: 1;
+}
+
+.progress-line-fill {
+    height: 100%;
+    background: #0d78f2;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    position: relative;
+    z-index: 2;
+}
+
+.step.active ~ .step::after {
+    display: none;
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #e3e5e8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #8f98a3;
+    font-weight: 600;
+    position: relative;
+    z-index: 2;
+}
+
+.step.active .step-number {
+    background: #0d78f2;
+    color: white;
+}
+
+.step-label {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #8f98a3;
+    text-align: center;
+}
+
+.step.active .step-label {
+    color: #0d78f2;
+    font-weight: 600;
+}
+
+.step-content {
+    margin-bottom: 2rem;
+}
+
+.csv-upload-area {
+    margin-top: 1rem;
+}
+
+.upload-dropzone {
+    border: 2px dashed #cbd5e0;
+    border-radius: 8px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.upload-dropzone:hover {
+    border-color: #0d78f2;
+    background: #f7fafc;
+}
+
+.upload-dropzone.dragover {
+    border-color: #0d78f2;
+    background: #ebf8ff;
+}
+
+.upload-dropzone.success {
+    border-color: #38a169;
+    background: #f0fff4;
+}
+
+.file-success {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: #38a169;
+}
+
+.file-success-icon {
+    margin-bottom: 0.5rem;
+}
+
+.file-success-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.file-success-hint {
+    font-size: 0.875rem;
+    color: #68d391;
+}
+
+.upload-icon {
+    color: #8f98a3;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: center;
+}
+
+.upload-text {
+    font-size: 1.125rem;
+    color: #4a5568;
+    margin: 0 0 0.5rem 0;
+}
+
+.upload-hint {
+    font-size: 0.875rem;
+    color: #8f98a3;
+    margin: 0;
+}
+
+.field-mapping-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.fields-list {
+    min-height: 300px;
+    border: 1px solid #e3e5e8;
+    border-radius: 4px;
+    padding: 1rem;
+}
+
+.csv-field {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: #f7fafc;
+    border: 1px solid #e3e5e8;
+    border-radius: 4px;
+    cursor: move;
+    user-select: none;
+}
+
+.csv-field:last-child {
+    margin-bottom: 0;
+}
+
+.csv-field.dragging {
+    opacity: 0.5;
+}
+
+.target-field {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid #e3e5e8;
+    border-radius: 4px;
+}
+
+.target-field:last-child {
+    margin-bottom: 0;
+}
+
+.field-label {
+    font-weight: 600;
+    color: #4a5568;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.field-drop-zone {
+    min-height: 40px;
+    border: 2px dashed #cbd5e0;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #8f98a3;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+
+.field-drop-zone.dragover {
+    border-color: #0d78f2;
+    background: #ebf8ff;
+}
+
+.field-drop-zone.mapped {
+    border-color: #38a169;
+    background: #f0fff4;
+    color: #38a169;
+    position: relative;
+    padding-right: 2rem;
+}
+
+.field-remove-btn {
+    position: absolute;
+    top: -12px;
+    right: -10px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #e53e3e;
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+    padding: 0 0 1px 0;
+}
+
+.field-remove-btn:hover {
+    background: #c53030;
+    transform: scale(1.1);
+}
+
+.field-remove-btn:active {
+    transform: scale(0.95);
+}
+
+.csv-preview {
+    height: 150px;
+    overflow: auto;
+    margin-top: 1rem;
+    border: 1px solid #e3e5e8;
+    border-radius: 4px;
+}
+
+.csv-preview table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+}
+
+.csv-preview th,
+.csv-preview td {
+    padding: 0.75rem;
+    border-right: 1px solid #e3e5e8;
+    border-bottom: 1px solid #e3e5e8;
+    text-align: left;
+    vertical-align: top;
+    white-space: nowrap;
+}
+
+.csv-preview th:last-child,
+.csv-preview td:last-child {
+    border-right: none;
+}
+
+.csv-preview th {
+    background: #f7fafc;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 1px 0 #e3e5e8;
+}
+
+.import-preview {
+    margin-top: 1rem;
+}
+
+.preview-entry {
+    padding: 1rem;
+    border: 1px solid #e3e5e8;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    transition: all 0.2s ease;
+}
+
+.preview-entry:last-child {
+    margin-bottom: 0;
+}
+
+.preview-entry h4 {
+    margin: 0 0 0.5rem 0;
+    color: #4a5568;
+}
+
+.preview-entry p {
+    margin: 0.25rem 0;
+    font-size: 0.875rem;
+    color: #8f98a3;
+}
+
+/* Hierarchy-specific styles */
+.hierarchy-entry {
+    position: relative;
+}
+
+.hierarchy-entry[data-depth="1"] {
+    border-left: 4px solid #0d78f2;
+    background: #f8faff;
+}
+
+.hierarchy-entry[data-depth="2"] {
+    border-left: 4px solid #38a169;
+    background: #f0fff4;
+}
+
+.hierarchy-entry[data-depth="3"] {
+    border-left: 4px solid #ed8936;
+    background: #fffaf0;
+}
+
+.hierarchy-entry[data-depth="4"] {
+    border-left: 4px solid #9f7aea;
+    background: #faf5ff;
+}
+
+.hierarchy-entry[data-depth]:before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(0,0,0,0.1);
+}
+
+.entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.entry-header h4 {
+    margin: 0;
+    flex: 1;
+}
+
+.hierarchy-info {
+    margin: 0 0 0.5rem 0 !important;
+    font-size: 0.75rem !important;
+    color: #68d391 !important;
+    font-weight: 500;
+}
+
+.hierarchy-info strong {
+    color: #38a169;
+}
+
+.depth-indicator {
+    background: #e3e5e8;
+    color: #4a5568;
+    padding: 0.125rem 0.375rem;
+    border-radius: 12px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+
+.entry-details {
+    padding-left: 0;
+}
+
+.entry-details p {
+    margin: 0.125rem 0;
+}
+
+.csv-preview-section {
+    margin-bottom: 3rem;
+}
+
+.csv-preview-section h3 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    color: #4a5568;
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.required {
+    color: #e53e3e;
+    font-weight: normal;
+}
+.required:after {
+    content: none !important;
+    display: none !important;
+}
+
+/* Success Message */
+.success-message {
+    background: #10b981;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.success-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    font-weight: 600;
+    font-size: 1.125rem;
+}
+
+.success-icon {
+    display: flex;
+    align-items: center;
+}
+
+.success-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Top Navigation */
+.top-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3rem;
+    padding: 0 0 2rem 0;
+    border-bottom: 1px solid #e3e5e8;
+}
+
+.step-content {
+    margin-bottom: 2rem;
+}
+
+.step-content .field {
+    margin-bottom: 3rem;
+}
+.step-content .field>.heading {
+    gap: 0 !important;
+}
+
+.step-content .field:last-child {
+    margin-top: 0.5rem;
+    margin-bottom: 0;
+}
+
+.step-content .heading {
+    margin-bottom: 1rem;
+}
+.step-content .heading + .heading {
+    margin-bottom: 0.5rem;
+}
+
+.step-content .heading h2 {
+    margin-bottom: 0.5rem;
+}
+
+.base-entry-selector {
+    margin-top: 0.5rem;
+}
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.step-navigation {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navigation-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.navigation-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.error-message {
+    color: #e53e3e;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e3e5e8;
+    border-top: 4px solid #0d78f2;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.hidden {
+    display: none !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csvImporter = {
+        currentStep: 1,
+        csvData: null,
+        fieldMappings: {},
+        skipFirstRow: false,
+        
+        init() {
+            this.setupEventListeners();
+            this.updateStepVisibility();
+        },
+        
+        setupEventListeners() {
+            // File upload
+            document.getElementById('csv-file').addEventListener('change', (e) => {
+                this.handleFileUpload(e.target.files[0]);
+            });
+            
+            // Dropzone
+            const dropzone = document.getElementById('upload-dropzone');
+            dropzone.addEventListener('click', () => {
+                document.getElementById('csv-file').click();
+            });
+            
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+            
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('dragover');
+            });
+            
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    this.handleFileUpload(files[0]);
+                }
+            });
+            
+            // Navigation
+            document.getElementById('prev-step').addEventListener('click', () => {
+                this.goToPrevStep();
+            });
+            
+            document.getElementById('next-step').addEventListener('click', (e) => {
+                console.log('Next step button clicked');
+                e.preventDefault();
+                this.goToNextStep();
+            });
+            
+            document.getElementById('import-btn').addEventListener('click', () => {
+                this.performImport();
+            });
+            
+            // Top navigation buttons
+            document.getElementById('top-prev-step').addEventListener('click', () => {
+                this.goToPrevStep();
+            });
+            
+            document.getElementById('top-import-btn').addEventListener('click', () => {
+                this.performImport();
+            });
+        },
+        
+        handleFileUpload(file) {
+            if (!file) return;
+            
+            if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+                alert('Please upload a CSV file');
+                return;
+            }
+            
+            this.showLoading();
+            
+            const formData = new FormData();
+            formData.append('csvFile', file);
+            
+            fetch('{{ actionUrl('simple-seo-import/import/upload-csv') }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': '{{ csrfToken }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.hideLoading();
+                if (data.success) {
+                    this.csvData = data;
+                    this.showFileSuccess(file.name, data.totalRows);
+                    this.populateCSVFields(data.headers);
+                    this.populateCSVPreview(data.previewData, data.headers);
+                    this.showCSVPreview();
+                    this.hideValidationError(); // Hide validation error when file is uploaded
+                } else {
+                    alert('Error uploading CSV: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                this.hideLoading();
+                console.error('Error:', error);
+                alert('Error uploading CSV file');
+            });
+        },
+        
+        showFileSuccess(fileName, totalRows) {
+            const dropzone = document.getElementById('upload-dropzone');
+            dropzone.classList.add('success');
+            
+            dropzone.innerHTML = `
+                <div class="file-success">
+                    <div class="file-success-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <path d="M9 15l2 2 4-4"/>
+                        </svg>
+                    </div>
+                    <div class="file-success-name">${fileName}</div>
+                    <div class="file-success-hint">Successfully uploaded • ${totalRows} rows found</div>
+                </div>
+            `;
+        },
+        
+        populateCSVFields(headers) {
+            const container = document.getElementById('csv-fields-list');
+            container.innerHTML = '';
+            
+            headers.forEach(header => {
+                const fieldDiv = document.createElement('div');
+                fieldDiv.className = 'csv-field';
+                fieldDiv.textContent = header;
+                fieldDiv.draggable = true;
+                fieldDiv.dataset.field = header;
+                
+                fieldDiv.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', header);
+                    fieldDiv.classList.add('dragging');
+                });
+                
+                fieldDiv.addEventListener('dragend', () => {
+                    fieldDiv.classList.remove('dragging');
+                });
+                
+                // Add double-click convenience feature
+                fieldDiv.addEventListener('dblclick', () => {
+                    this.mapFieldToNextAvailable(header);
+                });
+                
+                container.appendChild(fieldDiv);
+            });
+            
+            // Setup drop zones
+            this.setupDropZones();
+            
+            // Setup base entry change listener
+            this.setupBaseEntryListener();
+        },
+        
+        setupDropZones() {
+            const dropZones = document.querySelectorAll('.field-drop-zone');
+            
+            dropZones.forEach(zone => {
+                // Store original text for restoration
+                zone.setAttribute('data-original-text', zone.textContent.trim());
+                zone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    zone.classList.add('dragover');
+                });
+                
+                zone.addEventListener('dragleave', () => {
+                    zone.classList.remove('dragover');
+                });
+                
+                zone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    zone.classList.remove('dragover');
+                    
+                    const csvField = e.dataTransfer.getData('text/plain');
+                    const targetField = zone.parentElement.dataset.target;
+                    
+                    this.mapField(csvField, targetField, zone);
+                });
+            });
+        },
+        
+        mapField(csvField, targetField, zone) {
+            // Remove any existing mapping for this CSV field
+            this.unmapCsvField(csvField);
+            
+            // Set the new mapping
+            this.fieldMappings[csvField] = targetField;
+            
+            // Update the UI
+            zone.innerHTML = `
+                ${csvField}
+                <button type="button" class="field-remove-btn" data-csv-field="${csvField}">×</button>
+            `;
+            zone.classList.add('mapped');
+            
+            // Add remove button event listener
+            const removeBtn = zone.querySelector('.field-remove-btn');
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.unmapField(csvField, zone);
+            });
+            
+            this.checkMappingComplete();
+        },
+        
+        mapFieldToNextAvailable(csvField) {
+            // Find the first unmapped target field
+            const dropZones = document.querySelectorAll('.field-drop-zone:not(.mapped)');
+            if (dropZones.length > 0) {
+                const nextZone = dropZones[0];
+                const targetField = nextZone.parentElement.dataset.target;
+                this.mapField(csvField, targetField, nextZone);
+            }
+        },
+        
+        unmapField(csvField, zone) {
+            // Remove from mappings
+            delete this.fieldMappings[csvField];
+            
+            // Reset UI
+            zone.textContent = zone.getAttribute('data-original-text') || 'Drop field here';
+            zone.classList.remove('mapped');
+            
+            this.checkMappingComplete();
+        },
+        
+        unmapCsvField(csvField) {
+            // Find and unmap any existing mapping for this CSV field
+            if (this.fieldMappings[csvField]) {
+                const targetField = this.fieldMappings[csvField];
+                const existingZone = document.querySelector(`[data-target="${targetField}"] .field-drop-zone.mapped`);
+                if (existingZone) {
+                    this.unmapField(csvField, existingZone);
+                }
+            }
+        },
+        
+        setupBaseEntryListener() {
+            // Listen for changes to the base entry field
+            const observer = new MutationObserver(() => {
+                this.checkMappingComplete();
+            });
+            
+            // Observe the entire base entry selector area for changes
+            const baseEntryContainer = document.querySelector('.base-entry-selector');
+            if (baseEntryContainer) {
+                observer.observe(baseEntryContainer, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ['value']
+                });
+            }
+            
+            // Also listen for direct input changes
+            document.addEventListener('change', (e) => {
+                if (e.target.name === 'baseEntry' || e.target.closest('.base-entry-selector')) {
+                    this.checkMappingComplete();
+                }
+            });
+        },
+        
+        populateCSVPreview(previewData, headers) {
+            const container = document.getElementById('csv-preview');
+            
+            let html = '<table><thead><tr>';
+            headers.forEach(header => {
+                html += `<th>${header}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            // Show all CSV data instead of limiting to 2 rows
+            previewData.forEach(row => {
+                html += '<tr>';
+                headers.forEach(header => {
+                    html += `<td>${row[header] || ''}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            
+            container.innerHTML = html;
+        },
+        
+        checkMappingComplete() {
+            const hasMappings = Object.keys(this.fieldMappings).length > 0;
+            const hasBaseEntry = this.hasBaseEntry();
+            
+            console.log('Checking mapping complete:', {
+                hasMappings,
+                hasBaseEntry,
+                fieldMappings: this.fieldMappings
+            });
+            
+            if (hasMappings && hasBaseEntry) {
+                this.hideValidationError();
+            }
+            // Don't disable button - let validation happen on click
+        },
+        
+        goToNextStep() {
+            console.log('goToNextStep called, current step:', this.currentStep);
+            
+            // Validate requirements for current step
+            if (this.currentStep === 1) {
+                if (!this.csvData) {
+                    this.showValidationError('Upload a CSV file before continuing.');
+                    return;
+                }
+            } else if (this.currentStep === 2) {
+                const hasBaseEntry = this.hasBaseEntry();
+                const hasMappings = Object.keys(this.fieldMappings).length > 0;
+                
+                if (!hasBaseEntry || !hasMappings) {
+                    this.showValidationError('Complete the required fields before continuing.');
+                    return;
+                }
+            }
+            
+            // Hide validation error if we get here
+            this.hideValidationError();
+            
+            if (this.currentStep < 3) {
+                this.currentStep++;
+                this.updateStepVisibility();
+                
+                if (this.currentStep === 3) {
+                    this.loadPreview();
+                }
+            } else {
+                console.log('Cannot go to next step, already at step 3');
+            }
+        },
+        
+        goToPrevStep() {
+            if (this.currentStep > 1) {
+                this.currentStep--;
+                this.updateStepVisibility();
+            }
+        },
+        
+        updateStepVisibility() {
+            // Update step indicators
+            document.querySelectorAll('.step').forEach((step, index) => {
+                if (index + 1 <= this.currentStep) {
+                    step.classList.add('active');
+                } else {
+                    step.classList.remove('active');
+                }
+            });
+            
+            // Update progress line
+            const progressPercentage = ((this.currentStep - 1) / 2) * 100; // 2 = max steps - 1
+            const progressLineFill = document.querySelector('.progress-line-fill');
+            if (progressLineFill) {
+                progressLineFill.style.width = progressPercentage + '%';
+            }
+            
+            // Update step content
+            document.querySelectorAll('.step-content').forEach((content, index) => {
+                if (index + 1 === this.currentStep) {
+                    content.classList.remove('hidden');
+                } else {
+                    content.classList.add('hidden');
+                }
+            });
+            
+            // Show/hide CSV preview section
+            const csvPreviewSection = document.getElementById('csv-preview-section');
+            if (csvPreviewSection && this.csvData) {
+                if (this.currentStep === 2) {
+                    csvPreviewSection.classList.remove('hidden');
+                } else {
+                    csvPreviewSection.classList.add('hidden');
+                }
+            }
+            
+            // Show/hide success message and top navigation on step 3
+            const successMessage = document.getElementById('success-message');
+            const topNavigation = document.getElementById('top-navigation');
+            
+            if (this.currentStep === 3) {
+                if (successMessage) successMessage.classList.remove('hidden');
+                if (topNavigation) topNavigation.classList.remove('hidden');
+            } else {
+                if (successMessage) successMessage.classList.add('hidden');
+                if (topNavigation) topNavigation.classList.add('hidden');
+            }
+            
+            // Update navigation buttons
+            const prevBtn = document.getElementById('prev-step');
+            const nextBtn = document.getElementById('next-step');
+            const importBtn = document.getElementById('import-btn');
+            
+            prevBtn.style.display = this.currentStep > 1 ? 'inline-block' : 'none';
+            nextBtn.style.display = this.currentStep < 3 ? 'inline-block' : 'none';
+            importBtn.style.display = this.currentStep === 3 ? 'inline-block' : 'none';
+            
+            // Always enable next button so validation messages can show
+            nextBtn.disabled = false;
+            
+            // Hide validation error when navigating
+            this.hideValidationError();
+        },
+        
+        enableNextStep() {
+            document.getElementById('next-step').disabled = false;
+        },
+        
+        loadPreview() {
+            const baseEntry = document.querySelector('#base-entry input[type="hidden"]');
+            if (!baseEntry || !baseEntry.value) {
+                alert('Please select a base entry');
+                return;
+            }
+            
+            this.showLoading();
+            
+            fetch('{{ actionUrl('simple-seo-import/import/preview') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': '{{ csrfToken }}'
+                },
+                body: JSON.stringify({
+                    baseEntryId: baseEntry.value,
+                    fieldMappings: this.fieldMappings,
+                    skipFirstRow: document.getElementById('skip-first-row').checked
+                })
+            })
+            .then(response => {
+                console.log('Preview response status:', response.status);
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        console.error('Server response:', text);
+                        throw new Error(`HTTP ${response.status}: ${text.substring(0, 200)}...`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                this.hideLoading();
+                if (data.success) {
+                    this.populatePreview(data.entries);
+                } else {
+                    alert('Error loading preview: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                this.hideLoading();
+                console.error('Error:', error);
+                alert('Error loading preview: ' + error.message);
+            });
+        },
+        
+        populatePreview(entries) {
+            const container = document.getElementById('import-preview');
+            
+            let html = '';
+            entries.forEach(entry => {
+                // Strip HTML tags from heroTitle to show just the text content
+                const heroTitleText = entry.heroTitle ? entry.heroTitle.replace(/<[^>]*>/g, '') : '';
+                
+                // Calculate indentation based on depth
+                const depth = entry.depth || 0;
+                const indentLevel = Math.max(0, depth - 1); // Subtract 1 so top-level entries have no indent
+                const indentPx = indentLevel * 60; // 60px per level for more visible indentation
+                
+                // Create hierarchy indicator
+                let hierarchyInfo = '';
+                if (depth > 1 && entry.parentSlug) {
+                    hierarchyInfo = `<p class="hierarchy-info"><strong>Parent:</strong> ${entry.parentSlug} <span class="depth-indicator">Level ${depth}</span></p>`;
+                } else if (depth === 1) {
+                    hierarchyInfo = `<p class="hierarchy-info"><span class="depth-indicator">Top Level</span></p>`;
+                } else if (depth === 0) {
+                    hierarchyInfo = `<p class="hierarchy-info"><span class="depth-indicator">Root Level</span></p>`;
+                }
+                
+                html += `
+                    <div class="preview-entry hierarchy-entry" style="margin-left: ${indentPx}px;" data-depth="${depth}">
+                        <div class="entry-header">
+                            <h4>${entry.title}</h4>
+                            ${hierarchyInfo}
+                        </div>
+                        <div class="entry-details">
+                            <p><strong>Slug:</strong> ${entry.slug}</p>
+                            ${entry.url ? `<p><strong>URL:</strong> ${entry.url}</p>` : ''}
+                            <p><strong>Hero Title:</strong> ${heroTitleText}</p>
+                            <p><strong>SEO Description:</strong> ${entry.seoDescription}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        },
+        
+        performImport() {
+            const baseEntry = document.querySelector('#base-entry input[type="hidden"]');
+            if (!baseEntry || !baseEntry.value) {
+                alert('Please select a base entry');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to import all entries? This action cannot be undone.')) {
+                return;
+            }
+            
+            this.showLoading();
+            
+            fetch('{{ actionUrl('simple-seo-import/import/import') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': '{{ csrfToken }}'
+                },
+                body: JSON.stringify({
+                    baseEntryId: baseEntry.value,
+                    fieldMappings: this.fieldMappings,
+                    skipFirstRow: document.getElementById('skip-first-row').checked
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.hideLoading();
+                if (data.success) {
+                    alert(`Import completed! ${data.importedCount} entries imported successfully.`);
+                    location.reload();
+                } else {
+                    alert('Import failed: ' + (data.message || 'Unknown error'));
+                    if (data.errors && data.errors.length > 0) {
+                        console.error('Import errors:', data.errors);
+                    }
+                }
+            })
+            .catch(error => {
+                this.hideLoading();
+                console.error('Error:', error);
+                alert('Error performing import');
+            });
+        },
+        
+        showLoading() {
+            document.getElementById('loading-overlay').classList.remove('hidden');
+        },
+        
+        hideLoading() {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        },
+        
+        showCSVPreview() {
+            const csvPreviewSection = document.getElementById('csv-preview-section');
+            if (csvPreviewSection) {
+                csvPreviewSection.classList.remove('hidden');
+            }
+        },
+        
+        disableNextStep() {
+            document.getElementById('next-step').disabled = true;
+        },
+        
+        hasBaseEntry() {
+            // Check for base entry in different possible selectors
+            const baseEntrySelectors = [
+                '#base-entry input[type="hidden"]',
+                '[name="baseEntry"]',
+                '[data-element-id]'
+            ];
+            
+            for (const selector of baseEntrySelectors) {
+                const element = document.querySelector(selector);
+                if (element && element.value) {
+                    return true;
+                }
+            }
+            return false;
+        },
+        
+        showValidationError(message = 'Complete the required fields') {
+            const errorElement = document.getElementById('validation-error');
+            if (errorElement) {
+                errorElement.textContent = message;
+                errorElement.classList.remove('hidden');
+            }
+        },
+        
+        hideValidationError() {
+            const errorElement = document.getElementById('validation-error');
+            if (errorElement) {
+                errorElement.classList.add('hidden');
+            }
+        }
+    };
+    
+    csvImporter.init();
+});
+</script>
+{% endblock %}
