@@ -1,6 +1,6 @@
 {
   "name": "matrixcreate/craft-simple-seo-import",
-  "description": "A Craft CMS plugin for importing hierarchical entries from CSV files with drag-and-drop field mapping",
+  "description": "Import SEO metadata from CSV files and automatically create entries, with SEOmatic integration.",
   "type": "craft-plugin",
   "version": "1.0.0",
   "license": "MIT",
@@ -29,7 +29,7 @@
   "extra": {
     "name": "Simple SEO Import",
     "handle": "simple-seo-import",
-    "description": "Import hierarchical entries from CSV files with drag-and-drop field mapping and SEOmatic integration",
+    "description": "Import SEO metadata from CSV files and automatically create entries, with SEOmatic integration.",
     "developer": "Matrix Create",
     "developerUrl": "https://matrixcreate.com/",
     "changelogUrl": "https://raw.githubusercontent.com/matrixcreate/craft-simple-seo-import/main/CHANGELOG.md",
