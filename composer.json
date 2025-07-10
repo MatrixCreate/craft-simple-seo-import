@@ -2,7 +2,7 @@
   "name": "matrixcreate/craft-simple-seo-import",
   "description": "Import SEO metadata from CSV files and automatically create entries, with SEOmatic integration.",
   "type": "craft-plugin",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "license": "MIT",
   "keywords": ["craft", "cms", "plugin", "import", "csv", "seo", "hierarchy"],
   "homepage": "https://github.com/matrixcreate/craft-simple-seo-import",
