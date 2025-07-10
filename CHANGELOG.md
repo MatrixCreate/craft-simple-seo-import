@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## 1.0.0 - 2025-01-07
+## 1.0.1 - 2025-07-10
+
+### Added
+- Added validation to require all fields to be mapped before importing
+- Updated readme
+
+## 1.0.0 - 2025-07-09
 
 ### Added
 - Initial release

@@ -125,7 +125,8 @@
         <div class="field">
             <div class="heading">
                 <h2>{{ 'Map CSV Fields'|t('simple-seo-import') }} </h2>
-                <div class="instructions">{{ 'Drag CSV fields from the left to the target fields on the right. Double clicking works too.'|t('simple-seo-import') }}</div>
+                <div class="instructions instructions-mobile">{{ 'Drag CSV fields from the top to the target fields on the bottom. Double clicking works too.'|t('simple-seo-import') }}</div>
+                <div class="instructions instructions-desktop">{{ 'Drag CSV fields from the left to the target fields on the right. Double clicking works too.'|t('simple-seo-import') }}</div>
             </div>
             <div class="field-mapping-container">
                 <div class="csv-fields">
@@ -354,10 +355,31 @@
 }
 
 .field-mapping-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 2rem;
     margin-top: 1rem;
+}
+@media (min-width: 768px) {
+    .field-mapping-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.instructions-mobile {
+    display: block;
+}
+.instructions-desktop {
+    display: none;
+}
+@media (min-width: 768px) {
+    .instructions-mobile {
+        display: none;
+    }
+    .instructions-desktop {
+        display: block;
+    }
 }
 
 .fields-list {
@@ -1053,16 +1075,19 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         
         checkMappingComplete() {
-            const hasMappings = Object.keys(this.fieldMappings).length > 0;
             const hasBaseEntry = this.hasBaseEntry();
+            const requiredFields = ['hierarchy.address', 'entry.slug', 'entry.title', 'entry.heroTitle', 'seomatic.meta.description'];
+            const mappedFields = Object.values(this.fieldMappings);
+            const allFieldsMapped = requiredFields.every(field => mappedFields.includes(field));
             
             console.log('Checking mapping complete:', {
-                hasMappings,
                 hasBaseEntry,
+                allFieldsMapped,
+                mappedFields,
                 fieldMappings: this.fieldMappings
             });
             
-            if (hasMappings && hasBaseEntry) {
+            if (hasBaseEntry && allFieldsMapped) {
                 this.hideValidationError();
             }
             // Don't disable button - let validation happen on click
@@ -1079,10 +1104,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else if (this.currentStep === 2) {
                 const hasBaseEntry = this.hasBaseEntry();
-                const hasMappings = Object.keys(this.fieldMappings).length > 0;
+                const requiredFields = ['hierarchy.address', 'entry.slug', 'entry.title', 'entry.heroTitle', 'seomatic.meta.description'];
+                const mappedFields = Object.values(this.fieldMappings);
+                const allFieldsMapped = requiredFields.every(field => mappedFields.includes(field));
                 
-                if (!hasBaseEntry || !hasMappings) {
-                    this.showValidationError('Complete the required fields before continuing.');
+                if (!hasBaseEntry) {
+                    this.showValidationError('Please select a base entry before continuing.');
+                    return;
+                }
+                
+                if (!allFieldsMapped) {
+                    this.showValidationError('Please map all required fields before continuing.');
                     return;
                 }
             }
