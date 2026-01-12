@@ -154,6 +154,10 @@
                             <span class="field-label">{{ 'Hero Title'|t('simple-seo-import') }}</span>
                             <div class="field-drop-zone">{{ 'Drop field here'|t('simple-seo-import') }}</div>
                         </div>
+                        <div class="target-field" data-target="seomatic.meta.title">
+                            <span class="field-label">{{ 'SEO Meta Title'|t('simple-seo-import') }}</span>
+                            <div class="field-drop-zone">{{ 'Drop field here'|t('simple-seo-import') }}</div>
+                        </div>
                         <div class="target-field" data-target="seomatic.meta.description">
                             <span class="field-label">{{ 'SEO Meta Description'|t('simple-seo-import') }}</span>
                             <div class="field-drop-zone">{{ 'Drop field here'|t('simple-seo-import') }}</div>
@@ -1077,7 +1081,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         checkMappingComplete() {
             const hasBaseEntry = this.hasBaseEntry();
-            const requiredFields = ['hierarchy.address', 'entry.slug', 'entry.title', 'entry.heroTitle', 'seomatic.meta.description'];
+            const requiredFields = ['hierarchy.address', 'entry.slug', 'entry.title', 'entry.heroTitle', 'seomatic.meta.title', 'seomatic.meta.description'];
             const mappedFields = Object.values(this.fieldMappings);
             const allFieldsMapped = requiredFields.every(field => mappedFields.includes(field));
             
@@ -1105,7 +1109,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else if (this.currentStep === 2) {
                 const hasBaseEntry = this.hasBaseEntry();
-                const requiredFields = ['hierarchy.address', 'entry.slug', 'entry.title', 'entry.heroTitle', 'seomatic.meta.description'];
+                const requiredFields = ['hierarchy.address', 'entry.slug', 'entry.title', 'entry.heroTitle', 'seomatic.meta.title', 'seomatic.meta.description'];
                 const mappedFields = Object.values(this.fieldMappings);
                 const allFieldsMapped = requiredFields.every(field => mappedFields.includes(field));
                 
@@ -1290,6 +1294,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <p><strong>Slug:</strong> ${entry.slug}</p>
                             ${entry.url ? `<p><strong>URL:</strong> ${entry.url}</p>` : ''}
                             <p><strong>Hero Title:</strong> ${heroTitleText}</p>
+                            <p><strong>SEO Title:</strong> ${entry.seoTitle}</p>
                             <p><strong>SEO Description:</strong> ${entry.seoDescription}</p>
                         </div>
                     </div>

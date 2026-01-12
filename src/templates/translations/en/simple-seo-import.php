@@ -12,7 +12,7 @@ return [
     
     // Upload step
     'Upload CSV File' => 'Upload CSV File',
-    'Upload a CSV file with columns for: Slug, Page Title, H1, SEO Description' => 'Upload a CSV file with columns for: Slug, Page Title, H1, SEO Description',
+    'Upload a CSV file with columns for: Slug, Page Title, H1, SEO Meta Title, SEO Description' => 'Upload a CSV file with columns for: Slug, Page Title, H1, SEO Meta Title, SEO Description',
     'Drop your CSV file here or click to browse' => 'Drop your CSV file here or click to browse',
     'Supported formats: .csv (Max 10MB)' => 'Supported formats: .csv (Max 10MB)',
     

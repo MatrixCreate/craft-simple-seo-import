@@ -77,6 +77,11 @@ class CsvParserService extends Component
                 'type' => 'text',
                 'required' => false,
             ],
+            'seomatic.meta.title' => [
+                'label' => Craft::t('simple-seo-import', 'SEO Meta Title'),
+                'type' => 'text',
+                'required' => false,
+            ],
             'seomatic.meta.description' => [
                 'label' => Craft::t('simple-seo-import', 'SEO Meta Description'),
                 'type' => 'text',

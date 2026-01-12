@@ -178,6 +178,7 @@ class EntryDuplicatorService extends Component
                 'title' => $entry->title,
                 'slug' => $entry->slug,
                 'heroTitle' => $heroTitle,
+                'seoTitle' => $this->getSeomaticTitle($entry, $row, $fieldMappings),
                 'seoDescription' => $this->getSeomaticDescription($entry, $row, $fieldMappings),
             ];
         } catch (Exception $e) {
@@ -297,34 +298,75 @@ class EntryDuplicatorService extends Component
      */
     private function applySeomaticSettings(Entry $entry, array $row, array $fieldMappings): void
     {
+        // Initialize the SEOmatic field value once
+        $newSeo = $entry->getFieldValue('seo') ?: [];
+        $newSeo['metaBundleSettings'] = $newSeo['metaBundleSettings'] ?? [];
+        $newSeo['metaGlobalVars'] = $newSeo['metaGlobalVars'] ?? [];
+        $seoFieldUpdated = false;
+
         foreach ($fieldMappings as $csvField => $targetField) {
             if (!isset($row[$csvField])) continue;
+
+            if ($targetField === 'seomatic.meta.title') {
+                try {
+                    $seoTitle = $row[$csvField];
+
+                    // If seoTitle exists and is not empty
+                    if ($seoTitle != '') {
+                        $newSeo['metaGlobalVars']['seoTitle'] = $seoTitle;
+                        $newSeo['metaBundleSettings']['seoTitleSource'] = 'fromCustom';
+                        $seoFieldUpdated = true;
+
+                        Craft::info("Set SEOmatic title: " . $seoTitle, __METHOD__);
+                    }
+                } catch (Exception $e) {
+                    Craft::error("SEOmatic title integration failed: " . $e->getMessage(), __METHOD__);
+                }
+            }
 
             if ($targetField === 'seomatic.meta.description') {
                 try {
                     $seoDescription = $row[$csvField];
-                    
-                    // Initialize the SEOmatic field value - following your working code pattern
-                    $newSeo = $entry->getFieldValue('seo') ?: [];
-                    $newSeo['metaBundleSettings'] = $newSeo['metaBundleSettings'] ?? [];
-                    $newSeo['metaGlobalVars'] = $newSeo['metaGlobalVars'] ?? [];
-                    
+
                     // If seoDescription exists and is not empty
                     if ($seoDescription != '') {
                         $newSeo['metaGlobalVars']['seoDescription'] = $seoDescription;
                         $newSeo['metaBundleSettings']['seoDescriptionSource'] = 'fromCustom';
-                        
-                        // Set the field value
-                        $entry->setFieldValue('seo', $newSeo);
-                        
+                        $seoFieldUpdated = true;
+
                         Craft::info("Set SEOmatic description: " . $seoDescription, __METHOD__);
-                        Craft::info("Updated SEO field structure: " . json_encode($newSeo), __METHOD__);
                     }
                 } catch (Exception $e) {
-                    Craft::error("SEOmatic integration failed: " . $e->getMessage(), __METHOD__);
+                    Craft::error("SEOmatic description integration failed: " . $e->getMessage(), __METHOD__);
                 }
             }
         }
+
+        // Set the field value once if any SEO fields were updated
+        if ($seoFieldUpdated) {
+            $entry->setFieldValue('seo', $newSeo);
+            Craft::info("Updated SEO field structure: " . json_encode($newSeo), __METHOD__);
+        }
+    }
+
+    /**
+     * Get SEOmatic title for preview
+     */
+    private function getSeomaticTitle(Entry $entry, array $row, array $fieldMappings): string
+    {
+        foreach ($fieldMappings as $csvField => $targetField) {
+            if ($targetField === 'seomatic.meta.title' && isset($row[$csvField])) {
+                return $row[$csvField];
+            }
+        }
+
+        // If no mapping found, try to get from existing seo field
+        $seoSettings = $entry->getFieldValue('seo');
+        if ($seoSettings && isset($seoSettings['metaGlobalVars']['seoTitle'])) {
+            return $seoSettings['metaGlobalVars']['seoTitle'];
+        }
+
+        return '';
     }
 
     /**
@@ -337,13 +379,13 @@ class EntryDuplicatorService extends Component
                 return $row[$csvField];
             }
         }
-        
+
         // If no mapping found, try to get from existing seo field
         $seoSettings = $entry->getFieldValue('seo');
         if ($seoSettings && isset($seoSettings['metaGlobalVars']['seoDescription'])) {
             return $seoSettings['metaGlobalVars']['seoDescription'];
         }
-        
+
         return '';
     }
 
