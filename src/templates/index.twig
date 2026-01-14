@@ -461,6 +461,14 @@
     opacity: 0.5;
 }
 
+.csv-field.mapped {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: #f1f1f1;
+    color: #a0aec0;
+    pointer-events: none;
+}
+
 .target-field {
     padding: 0.75rem;
     margin-bottom: 0.5rem;
@@ -532,6 +540,13 @@
     font-size: 16px;
     transition: all 0.2s;
     padding: 0 0 1px 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.field-drop-zone.mapped:hover .field-remove-btn {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .field-remove-btn:hover {
@@ -1244,6 +1259,12 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
             zone.classList.add('mapped');
 
+            // Grey out the CSV field in the left list
+            const csvFieldElement = document.querySelector(`.csv-field[data-field="${csvField}"]`);
+            if (csvFieldElement) {
+                csvFieldElement.classList.add('mapped');
+            }
+
             // Make the entire zone draggable
             zone.setAttribute('draggable', 'true');
             zone.style.cursor = 'move';
@@ -1318,6 +1339,12 @@ document.addEventListener('DOMContentLoaded', function() {
         unmapField(csvField, zone) {
             // Remove from mappings
             delete this.fieldMappings[csvField];
+
+            // Reactivate the CSV field in the left list
+            const csvFieldElement = document.querySelector(`.csv-field[data-field="${csvField}"]`);
+            if (csvFieldElement) {
+                csvFieldElement.classList.remove('mapped');
+            }
 
             // Remove draggable attributes and listeners
             zone.removeAttribute('draggable');
