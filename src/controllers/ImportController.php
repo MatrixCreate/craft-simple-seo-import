@@ -92,22 +92,43 @@ class ImportController extends Controller
             $baseEntryId = $this->request->getRequiredBodyParam('baseEntryId');
             $fieldMappings = $this->request->getRequiredBodyParam('fieldMappings');
             $skipFirstRow = $this->request->getBodyParam('skipFirstRow', false);
-            
+            $parentEntryId = $this->request->getBodyParam('parentEntryId', null);
+
             Craft::info("Base Entry ID: $baseEntryId", __METHOD__);
             Craft::info("Field Mappings: " . json_encode($fieldMappings), __METHOD__);
             Craft::info("Skip First Row: " . ($skipFirstRow ? 'true' : 'false'), __METHOD__);
+            Craft::info("Parent Entry ID: " . ($parentEntryId ? $parentEntryId : 'none'), __METHOD__);
 
             // Get base entry
             $baseEntry = Craft::$app->getEntries()->getEntryById($baseEntryId);
             if (!$baseEntry) {
                 return $this->asJson([
                     'success' => false,
-                    'error' => 'Base entry not found'
+                    'error' => 'Template entry not found'
                 ]);
             }
 
+            // Validate parent entry if provided
+            if ($parentEntryId) {
+                $parentEntry = Craft::$app->getEntries()->getEntryById($parentEntryId);
+
+                if (!$parentEntry) {
+                    return $this->asJson([
+                        'success' => false,
+                        'error' => 'Selected Parent Entry not found'
+                    ]);
+                }
+
+                if ($parentEntry->sectionId !== $baseEntry->sectionId) {
+                    return $this->asJson([
+                        'success' => false,
+                        'error' => "Parent Entry '{$parentEntry->title}' is in section '{$parentEntry->section->name}', but Template Entry '{$baseEntry->title}' is in section '{$baseEntry->section->name}'. They must be in the same section."
+                    ]);
+                }
+            }
+
             $entryDuplicator = Plugin::getInstance()->entryDuplicator;
-            $previewEntries = $entryDuplicator->previewEntries($baseEntry, $csvData['data'], $fieldMappings, 50, $skipFirstRow);
+            $previewEntries = $entryDuplicator->previewEntries($baseEntry, $csvData['data'], $fieldMappings, 50, $skipFirstRow, $parentEntryId);
 
             return $this->asJson([
                 'success' => true,
@@ -138,18 +159,38 @@ class ImportController extends Controller
             $baseEntryId = $this->request->getRequiredBodyParam('baseEntryId');
             $fieldMappings = $this->request->getRequiredBodyParam('fieldMappings');
             $skipFirstRow = $this->request->getBodyParam('skipFirstRow', false);
+            $parentEntryId = $this->request->getBodyParam('parentEntryId', null);
 
             // Get base entry
             $baseEntry = Craft::$app->getEntries()->getEntryById($baseEntryId);
             if (!$baseEntry) {
                 return $this->asJson([
                     'success' => false,
-                    'error' => 'Base entry not found'
+                    'error' => 'Template entry not found'
                 ]);
             }
 
+            // Validate parent entry if provided
+            if ($parentEntryId) {
+                $parentEntry = Craft::$app->getEntries()->getEntryById($parentEntryId);
+
+                if (!$parentEntry) {
+                    return $this->asJson([
+                        'success' => false,
+                        'error' => 'Selected Parent Entry not found'
+                    ]);
+                }
+
+                if ($parentEntry->sectionId !== $baseEntry->sectionId) {
+                    return $this->asJson([
+                        'success' => false,
+                        'error' => "Parent Entry '{$parentEntry->title}' is in section '{$parentEntry->section->name}', but Template Entry '{$baseEntry->title}' is in section '{$baseEntry->section->name}'. They must be in the same section."
+                    ]);
+                }
+            }
+
             $entryDuplicator = Plugin::getInstance()->entryDuplicator;
-            $result = $entryDuplicator->importEntries($baseEntry, $csvData['data'], $fieldMappings, $skipFirstRow);
+            $result = $entryDuplicator->importEntries($baseEntry, $csvData['data'], $fieldMappings, $skipFirstRow, $parentEntryId);
 
             // Clean up temporary file
             $tempFile = Craft::$app->getSession()->get('csvImporter.tempFile');

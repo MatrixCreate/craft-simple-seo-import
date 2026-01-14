@@ -16,34 +16,35 @@ class EntryDuplicatorService extends Component
     /**
      * Preview entries before import
      */
-    public function previewEntries(Entry $baseEntry, array $csvData, array $fieldMappings, int $limit = 50, bool $skipFirstRow = false): array
+    public function previewEntries(Entry $baseEntry, array $csvData, array $fieldMappings, int $limit = 50, bool $skipFirstRow = false, ?int $forcedParentEntryId = null): array
     {
         Craft::info("Starting preview for entry: " . $baseEntry->id . " with " . count($csvData) . " rows", __METHOD__);
         Craft::info("Field mappings: " . json_encode($fieldMappings), __METHOD__);
         Craft::info("Skip first row: " . ($skipFirstRow ? 'true' : 'false'), __METHOD__);
-        
+        Craft::info("Forced parent entry ID: " . ($forcedParentEntryId ? $forcedParentEntryId : 'none'), __METHOD__);
+
         // Build hierarchy map for efficient parent lookups
         $hierarchyService = Plugin::getInstance()->hierarchy;
         $hierarchyMap = $hierarchyService->buildHierarchyMap($csvData, $fieldMappings);
-        
+
         // Skip first row if requested (after building hierarchy map)
         if ($skipFirstRow && !empty($hierarchyMap)) {
             Craft::info("Skipping first row (homepage)", __METHOD__);
             unset($hierarchyMap[0]); // Remove the first entry from hierarchy map
         }
-        
+
         // Get tree-ordered hierarchy map for display (parents followed by their children)
         $treeOrderedHierarchyMap = $hierarchyService->getTreeOrderedHierarchyMap($hierarchyMap);
-        
+
         $previews = [];
         $count = 0;
 
         foreach ($treeOrderedHierarchyMap as $rowIndex => $hierarchyInfo) {
             if ($count >= $limit) break;
-            
+
             $row = $csvData[$rowIndex];
             Craft::info("Processing row " . ($count + 1) . ": " . json_encode($row), __METHOD__);
-            
+
             $preview = $this->createPreviewEntry($baseEntry, $row, $fieldMappings);
             if ($preview) {
                 // Add hierarchy information to the preview
@@ -64,9 +65,10 @@ class EntryDuplicatorService extends Component
     /**
      * Import all entries from CSV data
      */
-    public function importEntries(Entry $baseEntry, array $csvData, array $fieldMappings, bool $skipFirstRow = false): array
+    public function importEntries(Entry $baseEntry, array $csvData, array $fieldMappings, bool $skipFirstRow = false, ?int $forcedParentEntryId = null): array
     {
         Craft::info("Starting import for " . count($csvData) . " rows, skipFirstRow: " . ($skipFirstRow ? 'true' : 'false'), __METHOD__);
+        Craft::info("Forced parent entry ID: " . ($forcedParentEntryId ? $forcedParentEntryId : 'none'), __METHOD__);
 
         // Build hierarchy map for efficient parent lookups
         $hierarchyService = Plugin::getInstance()->hierarchy;
@@ -89,8 +91,52 @@ class EntryDuplicatorService extends Component
             try {
                 Craft::info("Processing entry: " . $hierarchyInfo['slug'] . " (depth: " . $hierarchyInfo['pathInfo']['depth'] . ")", __METHOD__);
 
-                // Get parent entry ID for this row from hierarchy
-                $parentEntryId = $hierarchyService->getParentEntryIdForRow($hierarchyMap, $rowIndex);
+                // Get parent entry ID - with forced parent override logic
+                $detectedParentId = $hierarchyService->getParentEntryIdForRow($hierarchyMap, $rowIndex);
+
+                if ($forcedParentEntryId) {
+                    // When forced parent is set, ALL entries at the top level of CSV become children of forced parent
+                    // Only use detected parent if it's being created IN THIS IMPORT (not pre-existing)
+                    $depth = $hierarchyInfo['pathInfo']['depth'];
+                    $parentSlug = $hierarchyInfo['pathInfo']['parentSlug'];
+
+                    if ($depth <= 1) {
+                        // Depth 1 = truly top-level, use forced parent
+                        $parentEntryId = $forcedParentEntryId;
+                        Craft::info("Using forced parent {$forcedParentEntryId} for depth-1 entry", __METHOD__);
+                    } elseif ($detectedParentId) {
+                        // Check if detected parent was created in THIS import batch
+                        $parentInImportBatch = false;
+                        foreach ($hierarchyMap as $idx => $info) {
+                            if ($info['slug'] === $parentSlug && $idx < $rowIndex) {
+                                $parentInImportBatch = true;
+                                break;
+                            }
+                        }
+
+                        if ($parentInImportBatch) {
+                            // Parent is being created in this import - preserve hierarchy
+                            $parentEntryId = $detectedParentId;
+                            Craft::info("Using detected parent {$detectedParentId} (parent '{$parentSlug}' from same import batch)", __METHOD__);
+                        } else {
+                            // Parent pre-exists - replace with forced parent
+                            $parentEntryId = $forcedParentEntryId;
+                            Craft::info("Using forced parent {$forcedParentEntryId} (replacing pre-existing parent '{$parentSlug}')", __METHOD__);
+                        }
+                    } else {
+                        // No parent detected - use forced parent
+                        $parentEntryId = $forcedParentEntryId;
+                        Craft::info("Using forced parent {$forcedParentEntryId} (no parent detected)", __METHOD__);
+                    }
+                } else {
+                    // No forced parent - use standard URL-based hierarchy
+                    $parentEntryId = $detectedParentId;
+                    if ($parentEntryId) {
+                        Craft::info("Using detected parent {$parentEntryId} (standard hierarchy)", __METHOD__);
+                    } else {
+                        Craft::info("No parent detected - creating as top-level entry", __METHOD__);
+                    }
+                }
 
                 $result = $this->duplicateAndPopulateEntry($baseEntry, $row, $fieldMappings, $parentEntryId);
 
@@ -223,22 +269,13 @@ class EntryDuplicatorService extends Component
 
             // Set parent entry if specified (for hierarchy)
             if ($parentEntryId && $parentEntryId > 0) {
-                // Verify parent entry exists and is in the same section
-                $parentEntry = \craft\elements\Entry::findOne($parentEntryId);
-                if ($parentEntry) {
-                    $parentSectionId = $parentEntry->sectionId;
-                    $childSectionId = $entry->sectionId;
-
-                    if ($parentSectionId === $childSectionId) {
-                        $entry->setParentId($parentEntryId);
-                        $sectionHandle = $parentEntry->section ? $parentEntry->section->handle : $parentSectionId;
-                        Craft::info("Setting parent entry ID: {$parentEntryId} (section: {$sectionHandle})", __METHOD__);
-                    } else {
-                        $parentSectionHandle = $parentEntry->section ? $parentEntry->section->handle : $parentSectionId;
-                        Craft::warning("Parent entry {$parentEntryId} is in section '{$parentSectionHandle}' (ID: {$parentSectionId}) but child is in section ID {$childSectionId} - skipping parent", __METHOD__);
-                    }
-                } else {
-                    Craft::warning("Parent entry {$parentEntryId} not found - skipping parent", __METHOD__);
+                // Just set the parent - Craft will validate it
+                // If sections don't match, Craft's saveElement will fail with proper error
+                try {
+                    $entry->setParentId($parentEntryId);
+                    Craft::info("Set parent entry ID: {$parentEntryId}", __METHOD__);
+                } catch (\Exception $e) {
+                    Craft::warning("Failed to set parent entry ID {$parentEntryId}: " . $e->getMessage(), __METHOD__);
                 }
             }
 

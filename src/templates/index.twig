@@ -93,19 +93,38 @@
     <div class="step-content hidden" data-step="2">
         <div class="field">
             <div class="heading">
-                <h2>{{ 'Select Base Entry'|t('simple-seo-import') }} </h2>
-                <div class="instructions">{{ 'Choose an existing entry to use as the template for new entries.'|t('simple-seo-import') }}</div>
+                <h2>{{ 'Select Template Entry'|t('simple-seo-import') }} </h2>
+                <div class="instructions">{{ 'Choose an existing entry to use as the template for the imported entries.'|t('simple-seo-import') }}</div>
             </div>
             <div class="heading">
-                <label id="base-entry-label" for="base-entry">{{ 'Base Entry'|t('simple-seo-import') }}<span class="visually-hidden">Required</span><span class="required" aria-hidden="true"></span></label><span class="required">*</span>
+                <label id="template-entry-label" for="template-entry">{{ 'Template Entry'|t('simple-seo-import') }}<span class="visually-hidden">Required</span><span class="required" aria-hidden="true"></span></label><span class="required">*</span>
             </div>
-            <div class="base-entry-selector">
+            <div class="template-entry-selector">
                 {{ forms.elementSelectField({
-                    id: 'base-entry',
-                    name: 'baseEntry',
+                    id: 'template-entry',
+                    name: 'templateEntry',
                     elementType: 'craft\\elements\\Entry',
                     limit: 1,
                     required: true
+                }) }}
+            </div>
+        </div>
+
+        <div class="field">
+            <div class="heading">
+                <h2>{{ 'Parent Entry (Optional)'|t('simple-seo-import') }}</h2>
+                <div class="instructions">{{ 'Choose a parent entry to anchor the imported hierarchy. All top-level entries from your CSV will be created as children of this entry. URL-based hierarchy within the CSV will be preserved.'|t('simple-seo-import') }}</div>
+            </div>
+            <div class="heading">
+                <label id="parent-entry-label" for="parent-entry">{{ 'Parent Entry'|t('simple-seo-import') }}</label>
+            </div>
+            <div class="parent-entry-selector">
+                {{ forms.elementSelectField({
+                    id: 'parent-entry',
+                    name: 'parentEntry',
+                    elementType: 'craft\\elements\\Entry',
+                    limit: 1,
+                    required: false
                 }) }}
             </div>
         </div>
@@ -117,8 +136,8 @@
             {{ forms.checkboxField({
                 id: 'skip-first-row',
                 name: 'skipFirstRow',
-                label: 'Skip first row (homepage)'|t('simple-seo-import'),
-                instructions: 'Check this if the first row is the homepage, which should be handled separately as a Single entry type.'|t('simple-seo-import')
+                label: 'Skip first row'|t('simple-seo-import'),
+                instructions: 'Check this if the first row is the site root/homepage or would duplicate an existing page.'|t('simple-seo-import')
             }) }}
         </div>
 
@@ -136,7 +155,7 @@
                     </div>
                 </div>
                 <div class="target-fields">
-                    <h3>{{ 'Target Entry Fields'|t('simple-seo-import') }} <span class="required">*</span></h3>
+                    <h3>{{ 'Template Entry Fields'|t('simple-seo-import') }} <span class="required">*</span></h3>
                     <div id="target-fields-list" class="fields-list">
                         <div class="target-field" data-target="hierarchy.address">
                             <span class="field-label">{{ 'URL'|t('simple-seo-import') }}</span>
@@ -325,7 +344,7 @@
 }
 
 .upload-dropzone {
-    border: 2px dashed #cbd5e0;
+    border: 1px solid #cbd5e0;
     border-radius: 8px;
     padding: 3rem 2rem;
     text-align: center;
@@ -462,7 +481,7 @@
 
 .field-drop-zone {
     min-height: 40px;
-    border: 2px dashed #cbd5e0;
+    border: 1px solid #cbd5e0;
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -483,6 +502,17 @@
     color: #38a169;
     position: relative;
     padding-right: 2rem;
+    cursor: move;
+    user-select: none;
+    transition: background 0.2s, opacity 0.2s;
+}
+
+.field-drop-zone.mapped:hover {
+    background: #e6f9f0;
+}
+
+.field-drop-zone.dragging {
+    opacity: 0.5;
 }
 
 .field-remove-btn {
@@ -549,6 +579,10 @@
     top: 0;
     z-index: 10;
     box-shadow: 0 1px 0 #e3e5e8;
+}
+
+.csv-first-row {
+    transition: opacity 0.2s ease-in-out;
 }
 
 .import-preview {
@@ -741,7 +775,11 @@
     margin-bottom: 0.5rem;
 }
 
-.base-entry-selector {
+.template-entry-selector {
+    margin-top: 0.5rem;
+}
+
+.parent-entry-selector {
     margin-top: 0.5rem;
 }
 
@@ -1044,7 +1082,12 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('import-btn').addEventListener('click', () => {
                 this.performImport();
             });
-            
+
+            // Skip first row checkbox toggle
+            document.getElementById('skip-first-row').addEventListener('change', () => {
+                this.updateFirstRowVisibility();
+            });
+
             // Top navigation buttons
             document.getElementById('top-prev-step').addEventListener('click', () => {
                 this.goToPrevStep();
@@ -1153,26 +1196,35 @@ document.addEventListener('DOMContentLoaded', function() {
         
         setupDropZones() {
             const dropZones = document.querySelectorAll('.field-drop-zone');
-            
+
             dropZones.forEach(zone => {
                 // Store original text for restoration
                 zone.setAttribute('data-original-text', zone.textContent.trim());
                 zone.addEventListener('dragover', (e) => {
                     e.preventDefault();
-                    zone.classList.add('dragover');
+                    e.dataTransfer.dropEffect = 'move';
+                    // Don't highlight if dragging over the same zone it's already in
+                    if (!zone.classList.contains('dragging')) {
+                        zone.classList.add('dragover');
+                    }
                 });
-                
+
                 zone.addEventListener('dragleave', () => {
                     zone.classList.remove('dragover');
                 });
-                
+
                 zone.addEventListener('drop', (e) => {
                     e.preventDefault();
                     zone.classList.remove('dragover');
-                    
+
                     const csvField = e.dataTransfer.getData('text/plain');
                     const targetField = zone.parentElement.dataset.target;
-                    
+
+                    // Don't remap to the same field
+                    if (this.fieldMappings[csvField] === targetField) {
+                        return;
+                    }
+
                     this.mapField(csvField, targetField, zone);
                 });
             });
@@ -1181,45 +1233,104 @@ document.addEventListener('DOMContentLoaded', function() {
         mapField(csvField, targetField, zone) {
             // Remove any existing mapping for this CSV field
             this.unmapCsvField(csvField);
-            
+
             // Set the new mapping
             this.fieldMappings[csvField] = targetField;
-            
+
             // Update the UI
             zone.innerHTML = `
                 ${csvField}
                 <button type="button" class="field-remove-btn" data-csv-field="${csvField}">×</button>
             `;
             zone.classList.add('mapped');
-            
+
+            // Make the entire zone draggable
+            zone.setAttribute('draggable', 'true');
+            zone.style.cursor = 'move';
+
+            // Add dragstart event to the zone itself
+            const dragStartHandler = (e) => {
+                e.dataTransfer.setData('text/plain', csvField);
+                e.dataTransfer.effectAllowed = 'move';
+                zone.classList.add('dragging');
+            };
+
+            const dragEndHandler = (e) => {
+                zone.classList.remove('dragging');
+            };
+
+            // Remove old listeners if they exist
+            zone.removeEventListener('dragstart', zone._dragStartHandler);
+            zone.removeEventListener('dragend', zone._dragEndHandler);
+
+            // Store handlers for cleanup
+            zone._dragStartHandler = dragStartHandler;
+            zone._dragEndHandler = dragEndHandler;
+
+            zone.addEventListener('dragstart', dragStartHandler);
+            zone.addEventListener('dragend', dragEndHandler);
+
             // Add remove button event listener
             const removeBtn = zone.querySelector('.field-remove-btn');
             removeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.unmapField(csvField, zone);
             });
-            
+
             this.checkMappingComplete();
         },
         
         mapFieldToNextAvailable(csvField) {
-            // Find the first unmapped target field
-            const dropZones = document.querySelectorAll('.field-drop-zone:not(.mapped)');
-            if (dropZones.length > 0) {
-                const nextZone = dropZones[0];
-                const targetField = nextZone.parentElement.dataset.target;
-                this.mapField(csvField, targetField, nextZone);
+            // Find all drop zones (both mapped and unmapped) in DOM order
+            const allDropZones = document.querySelectorAll('.field-drop-zone');
+            const dropZonesArray = Array.from(allDropZones);
+
+            // Find the last mapped field's index
+            let lastMappedIndex = -1;
+            dropZonesArray.forEach((zone, index) => {
+                if (zone.classList.contains('mapped')) {
+                    lastMappedIndex = index;
+                }
+            });
+
+            // Find the first unmapped field AFTER the last mapped field
+            for (let i = lastMappedIndex + 1; i < dropZonesArray.length; i++) {
+                const zone = dropZonesArray[i];
+                if (!zone.classList.contains('mapped')) {
+                    const targetField = zone.parentElement.dataset.target;
+                    this.mapField(csvField, targetField, zone);
+                    return;
+                }
+            }
+
+            // If no unmapped field found after last mapped, try from the beginning
+            // (handles case where user unmaps fields in the middle)
+            for (let i = 0; i <= lastMappedIndex; i++) {
+                const zone = dropZonesArray[i];
+                if (!zone.classList.contains('mapped')) {
+                    const targetField = zone.parentElement.dataset.target;
+                    this.mapField(csvField, targetField, zone);
+                    return;
+                }
             }
         },
         
         unmapField(csvField, zone) {
             // Remove from mappings
             delete this.fieldMappings[csvField];
-            
-            // Reset UI
+
+            // Remove draggable attributes and listeners
+            zone.removeAttribute('draggable');
+            zone.style.cursor = '';
+            zone.removeEventListener('dragstart', zone._dragStartHandler);
+            zone.removeEventListener('dragend', zone._dragEndHandler);
+            delete zone._dragStartHandler;
+            delete zone._dragEndHandler;
+
+            // Reset UI - remove all drag-related classes
             zone.textContent = zone.getAttribute('data-original-text') || 'Drop field here';
-            zone.classList.remove('mapped');
-            
+            zone.classList.remove('mapped', 'dragging');
+
             this.checkMappingComplete();
         },
         
@@ -1240,20 +1351,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.checkMappingComplete();
             });
             
-            // Observe the entire base entry selector area for changes
-            const baseEntryContainer = document.querySelector('.base-entry-selector');
-            if (baseEntryContainer) {
-                observer.observe(baseEntryContainer, {
+            // Observe the entire template entry selector area for changes
+            const templateEntryContainer = document.querySelector('.template-entry-selector');
+            if (templateEntryContainer) {
+                observer.observe(templateEntryContainer, {
                     childList: true,
                     subtree: true,
                     attributes: true,
                     attributeFilter: ['value']
                 });
             }
-            
+
             // Also listen for direct input changes
             document.addEventListener('change', (e) => {
-                if (e.target.name === 'baseEntry' || e.target.closest('.base-entry-selector')) {
+                if (e.target.name === 'templateEntry' || e.target.closest('.template-entry-selector')) {
                     this.checkMappingComplete();
                 }
             });
@@ -1261,24 +1372,41 @@ document.addEventListener('DOMContentLoaded', function() {
         
         populateCSVPreview(previewData, headers) {
             const container = document.getElementById('csv-preview');
-            
+
             let html = '<table><thead><tr>';
             headers.forEach(header => {
                 html += `<th>${header}</th>`;
             });
             html += '</tr></thead><tbody>';
-            
-            // Show all CSV data instead of limiting to 2 rows
-            previewData.forEach(row => {
-                html += '<tr>';
+
+            // Show all CSV data, mark first row for conditional hiding
+            previewData.forEach((row, index) => {
+                const firstRowClass = index === 0 ? ' class="csv-first-row"' : '';
+                html += `<tr${firstRowClass}>`;
                 headers.forEach(header => {
                     html += `<td>${row[header] || ''}</td>`;
                 });
                 html += '</tr>';
             });
             html += '</tbody></table>';
-            
+
             container.innerHTML = html;
+
+            // Update first row visibility based on checkbox state
+            this.updateFirstRowVisibility();
+        },
+
+        updateFirstRowVisibility() {
+            const skipFirstRow = document.getElementById('skip-first-row')?.checked || false;
+            const firstRow = document.querySelector('.csv-first-row');
+
+            if (firstRow) {
+                if (skipFirstRow) {
+                    firstRow.style.display = 'none';
+                } else {
+                    firstRow.style.display = '';
+                }
+            }
         },
         
         checkMappingComplete() {
@@ -1427,14 +1555,17 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         
         loadPreview() {
-            const baseEntry = document.querySelector('#base-entry input[type="hidden"]');
-            if (!baseEntry || !baseEntry.value) {
-                alert('Please select a base entry');
+            const templateEntry = document.querySelector('#template-entry input[type="hidden"]');
+            if (!templateEntry || !templateEntry.value) {
+                alert('Please select a template entry');
                 return;
             }
-            
+
+            const parentEntry = document.querySelector('#parent-entry input[type="hidden"]');
+            const parentEntryId = parentEntry?.value || null;
+
             this.showLoading();
-            
+
             fetch('{{ actionUrl('simple-seo-import/import/preview') }}', {
                 method: 'POST',
                 headers: {
@@ -1443,9 +1574,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-CSRF-Token': '{{ csrfToken }}'
                 },
                 body: JSON.stringify({
-                    baseEntryId: baseEntry.value,
+                    baseEntryId: templateEntry.value,
                     fieldMappings: this.fieldMappings,
-                    skipFirstRow: document.getElementById('skip-first-row').checked
+                    skipFirstRow: document.getElementById('skip-first-row').checked,
+                    parentEntryId: parentEntryId
                 })
             })
             .then(response => {
@@ -1519,11 +1651,14 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         
         performImport() {
-            const baseEntry = document.querySelector('#base-entry input[type="hidden"]');
-            if (!baseEntry || !baseEntry.value) {
-                alert('Please select a base entry');
+            const templateEntry = document.querySelector('#template-entry input[type="hidden"]');
+            if (!templateEntry || !templateEntry.value) {
+                alert('Please select a template entry');
                 return;
             }
+
+            const parentEntry = document.querySelector('#parent-entry input[type="hidden"]');
+            const parentEntryId = parentEntry?.value || null;
 
             if (!confirm('Are you sure you want to import all entries? This action cannot be undone.')) {
                 return;
@@ -1539,9 +1674,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-CSRF-Token': '{{ csrfToken }}'
                 },
                 body: JSON.stringify({
-                    baseEntryId: baseEntry.value,
+                    baseEntryId: templateEntry.value,
                     fieldMappings: this.fieldMappings,
-                    skipFirstRow: document.getElementById('skip-first-row').checked
+                    skipFirstRow: document.getElementById('skip-first-row').checked,
+                    parentEntryId: parentEntryId
                 })
             })
             .then(response => {
@@ -1585,14 +1721,14 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         
         hasBaseEntry() {
-            // Check for base entry in different possible selectors
-            const baseEntrySelectors = [
-                '#base-entry input[type="hidden"]',
-                '[name="baseEntry"]',
+            // Check for template entry in different possible selectors
+            const templateEntrySelectors = [
+                '#template-entry input[type="hidden"]',
+                '[name="templateEntry"]',
                 '[data-element-id]'
             ];
-            
-            for (const selector of baseEntrySelectors) {
+
+            for (const selector of templateEntrySelectors) {
                 const element = document.querySelector(selector);
                 if (element && element.value) {
                     return true;
