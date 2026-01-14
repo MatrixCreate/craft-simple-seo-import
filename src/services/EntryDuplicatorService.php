@@ -67,20 +67,20 @@ class EntryDuplicatorService extends Component
     public function importEntries(Entry $baseEntry, array $csvData, array $fieldMappings, bool $skipFirstRow = false): array
     {
         Craft::info("Starting import for " . count($csvData) . " rows, skipFirstRow: " . ($skipFirstRow ? 'true' : 'false'), __METHOD__);
-        
+
         // Build hierarchy map for efficient parent lookups
         $hierarchyService = Plugin::getInstance()->hierarchy;
         $hierarchyMap = $hierarchyService->buildHierarchyMap($csvData, $fieldMappings);
-        
+
         // Skip first row if requested (after building hierarchy map)
         if ($skipFirstRow && !empty($hierarchyMap)) {
             Craft::info("Skipping first row (homepage)", __METHOD__);
             unset($hierarchyMap[0]); // Remove the first entry from hierarchy map
         }
-        
+
         // Get sorted hierarchy map (parents first)
         $sortedHierarchyMap = $hierarchyService->getSortedHierarchyMap($hierarchyMap);
-        
+
         $importedCount = 0;
         $errors = [];
 
@@ -88,29 +88,44 @@ class EntryDuplicatorService extends Component
             $row = $csvData[$rowIndex];
             try {
                 Craft::info("Processing entry: " . $hierarchyInfo['slug'] . " (depth: " . $hierarchyInfo['pathInfo']['depth'] . ")", __METHOD__);
-                
+
                 // Get parent entry ID for this row from hierarchy
                 $parentEntryId = $hierarchyService->getParentEntryIdForRow($hierarchyMap, $rowIndex);
-                
-                $entryId = $this->duplicateAndPopulateEntry($baseEntry, $row, $fieldMappings, $parentEntryId);
-                if ($entryId) {
+
+                $result = $this->duplicateAndPopulateEntry($baseEntry, $row, $fieldMappings, $parentEntryId);
+
+                if (is_array($result)) {
+                    // Entry creation failed with validation errors
+                    $entryTitle = $row[$this->getFieldByTarget($fieldMappings, 'entry.title')] ?? 'Unknown';
+                    $errorMsg = "Row " . ($rowIndex + 1) . " ({$entryTitle}): " . $result['error'];
+                    $errors[] = $errorMsg;
+                    Craft::error($errorMsg, __METHOD__);
+                } elseif ($result) {
+                    // Success - $result is the entry ID
                     $importedCount++;
-                    
+
                     // Cache this entry's slug for future parent lookups
                     $slug = $hierarchyInfo['slug'];
-                    $hierarchyService->cacheEntrySlug($slug, $entryId);
-                    
-                    Craft::info("Successfully created entry: " . $slug . " (ID: " . $entryId . ")", __METHOD__);
+                    $hierarchyService->cacheEntrySlug($slug, $result);
+
+                    Craft::info("Successfully created entry: " . $slug . " (ID: " . $result . ")", __METHOD__);
                 } else {
-                    $errors[] = "Row " . ($rowIndex + 1) . ": Failed to create entry";
-                    Craft::error("Failed to create entry for row " . ($rowIndex + 1), __METHOD__);
+                    // Generic failure
+                    $entryTitle = $row[$this->getFieldByTarget($fieldMappings, 'entry.title')] ?? 'Unknown';
+                    $errorMsg = "Row " . ($rowIndex + 1) . " ({$entryTitle}): Failed to create entry";
+                    $errors[] = $errorMsg;
+                    Craft::error($errorMsg, __METHOD__);
                 }
             } catch (Exception $e) {
-                $errors[] = "Row " . ($rowIndex + 1) . ": " . $e->getMessage();
+                $entryTitle = $row[$this->getFieldByTarget($fieldMappings, 'entry.title')] ?? 'Unknown';
+                $errorMsg = "Row " . ($rowIndex + 1) . " ({$entryTitle}): " . $e->getMessage();
+                $errors[] = $errorMsg;
                 Craft::error("Import error on row " . ($rowIndex + 1) . ": " . $e->getMessage(), __METHOD__);
                 Craft::error("Exception details: " . $e->getTraceAsString(), __METHOD__);
             } catch (\Throwable $e) {
-                $errors[] = "Row " . ($rowIndex + 1) . ": " . $e->getMessage();
+                $entryTitle = $row[$this->getFieldByTarget($fieldMappings, 'entry.title')] ?? 'Unknown';
+                $errorMsg = "Row " . ($rowIndex + 1) . " ({$entryTitle}): " . $e->getMessage();
+                $errors[] = $errorMsg;
                 Craft::error("Fatal error on row " . ($rowIndex + 1) . ": " . $e->getMessage(), __METHOD__);
                 Craft::error("Error details: " . $e->getTraceAsString(), __METHOD__);
             }
@@ -118,15 +133,15 @@ class EntryDuplicatorService extends Component
 
         $result = [
             'success' => $importedCount > 0,
-            'message' => $importedCount > 0 
-                ? "Successfully imported {$importedCount} entries" 
+            'message' => $importedCount > 0
+                ? "Successfully imported {$importedCount} entries"
                 : "No entries were imported",
             'importedCount' => $importedCount,
             'errors' => $errors,
         ];
 
         Craft::info("Import completed. Result: " . json_encode($result), __METHOD__);
-        
+
         return $result;
     }
 
@@ -172,12 +187,15 @@ class EntryDuplicatorService extends Component
             $this->applySeomaticSettings($entry, $row, $fieldMappings);
 
             $heroTitle = $entry->getFieldValue('heroTitle') ?? '';
+            $pageHeader = $entry->getFieldValue('pageHeader') ?? '';
             Craft::info("Hero title from entry: " . $heroTitle, __METHOD__);
+            Craft::info("Page header from entry: " . $pageHeader, __METHOD__);
 
             return [
                 'title' => $entry->title,
                 'slug' => $entry->slug,
                 'heroTitle' => $heroTitle,
+                'pageHeader' => $pageHeader,
                 'seoTitle' => $this->getSeomaticTitle($entry, $row, $fieldMappings),
                 'seoDescription' => $this->getSeomaticDescription($entry, $row, $fieldMappings),
             ];
@@ -190,8 +208,9 @@ class EntryDuplicatorService extends Component
 
     /**
      * Duplicate base entry and populate with CSV data
+     * @return int|bool|array Returns entry ID on success, false on generic failure, or array with error details
      */
-    private function duplicateAndPopulateEntry(Entry $baseEntry, array $row, array $fieldMappings, ?int $parentEntryId = null): int|bool
+    private function duplicateAndPopulateEntry(Entry $baseEntry, array $row, array $fieldMappings, ?int $parentEntryId = null): int|bool|array
     {
         try {
             // Create new entry based on base entry
@@ -201,11 +220,26 @@ class EntryDuplicatorService extends Component
             $entry->authorId = $baseEntry->authorId;
             $entry->siteId = $baseEntry->siteId;
             $entry->enabled = true;
-            
+
             // Set parent entry if specified (for hierarchy)
-            if ($parentEntryId) {
-                $entry->setParentId($parentEntryId);
-                Craft::info("Setting parent entry ID: {$parentEntryId}", __METHOD__);
+            if ($parentEntryId && $parentEntryId > 0) {
+                // Verify parent entry exists and is in the same section
+                $parentEntry = \craft\elements\Entry::findOne($parentEntryId);
+                if ($parentEntry) {
+                    $parentSectionId = $parentEntry->sectionId;
+                    $childSectionId = $entry->sectionId;
+
+                    if ($parentSectionId === $childSectionId) {
+                        $entry->setParentId($parentEntryId);
+                        $sectionHandle = $parentEntry->section ? $parentEntry->section->handle : $parentSectionId;
+                        Craft::info("Setting parent entry ID: {$parentEntryId} (section: {$sectionHandle})", __METHOD__);
+                    } else {
+                        $parentSectionHandle = $parentEntry->section ? $parentEntry->section->handle : $parentSectionId;
+                        Craft::warning("Parent entry {$parentEntryId} is in section '{$parentSectionHandle}' (ID: {$parentSectionId}) but child is in section ID {$childSectionId} - skipping parent", __METHOD__);
+                    }
+                } else {
+                    Craft::warning("Parent entry {$parentEntryId} not found - skipping parent", __METHOD__);
+                }
             }
 
             // Copy field values from base entry using proper serialization approach
@@ -236,10 +270,25 @@ class EntryDuplicatorService extends Component
             // Save the entry
             $success = Craft::$app->getElements()->saveElement($entry);
 
-            return $success ? $entry->id : false;
+            if ($success) {
+                return $entry->id;
+            } else {
+                // Get validation errors
+                $validationErrors = $entry->getErrors();
+                if (!empty($validationErrors)) {
+                    $errorMessages = [];
+                    foreach ($validationErrors as $attribute => $errors) {
+                        foreach ($errors as $error) {
+                            $errorMessages[] = "{$attribute}: {$error}";
+                        }
+                    }
+                    return ['error' => implode('; ', $errorMessages)];
+                }
+                return false;
+            }
         } catch (Exception $e) {
             Craft::error("Entry duplication failed: " . $e->getMessage(), __METHOD__);
-            return false;
+            return ['error' => $e->getMessage()];
         }
     }
 
@@ -267,12 +316,12 @@ class EntryDuplicatorService extends Component
                     // Handle heroTitle field directly on entry
                     $existingHtml = $entry->getFieldValue('heroTitle');
                     Craft::info("Existing heroTitle HTML: " . $existingHtml, __METHOD__);
-                    
+
                     if ($existingHtml && trim($existingHtml)) {
                         // Simple approach: replace text content between HTML tags
                         // Look for text between > and < and replace it
                         $newHtml = preg_replace('/>([^<]+)</', '>' . htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '<', $existingHtml);
-                        
+
                         if ($newHtml !== $existingHtml) {
                             $entry->setFieldValue('heroTitle', $newHtml);
                             Craft::info("Set heroTitle with preserved HTML: " . $newHtml, __METHOD__);
@@ -287,6 +336,32 @@ class EntryDuplicatorService extends Component
                         $newHtml = '<h1>' . htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '</h1>';
                         $entry->setFieldValue('heroTitle', $newHtml);
                         Craft::info("Set heroTitle with default H1: " . $newHtml, __METHOD__);
+                    }
+                    break;
+                case 'entry.pageHeader':
+                    // Handle pageHeader field - same logic as heroTitle
+                    $existingHtml = $entry->getFieldValue('pageHeader');
+                    Craft::info("Existing pageHeader HTML: " . $existingHtml, __METHOD__);
+
+                    if ($existingHtml && trim($existingHtml)) {
+                        // Simple approach: replace text content between HTML tags
+                        // Look for text between > and < and replace it
+                        $newHtml = preg_replace('/>([^<]+)</', '>' . htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '<', $existingHtml);
+
+                        if ($newHtml !== $existingHtml) {
+                            $entry->setFieldValue('pageHeader', $newHtml);
+                            Craft::info("Set pageHeader with preserved HTML: " . $newHtml, __METHOD__);
+                        } else {
+                            // Fallback: if no match found, wrap in h1 tags
+                            $newHtml = '<h1>' . htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '</h1>';
+                            $entry->setFieldValue('pageHeader', $newHtml);
+                            Craft::info("Set pageHeader with fallback H1: " . $newHtml, __METHOD__);
+                        }
+                    } else {
+                        // No existing HTML, wrap in h1 tags
+                        $newHtml = '<h1>' . htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '</h1>';
+                        $entry->setFieldValue('pageHeader', $newHtml);
+                        Craft::info("Set pageHeader with default H1: " . $newHtml, __METHOD__);
                     }
                     break;
             }
@@ -387,6 +462,19 @@ class EntryDuplicatorService extends Component
         }
 
         return '';
+    }
+
+    /**
+     * Get CSV field name by target field
+     */
+    private function getFieldByTarget(array $fieldMappings, string $targetField): ?string
+    {
+        foreach ($fieldMappings as $csvField => $target) {
+            if ($target === $targetField) {
+                return $csvField;
+            }
+        }
+        return null;
     }
 
 }

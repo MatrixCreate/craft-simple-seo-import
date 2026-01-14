@@ -156,18 +156,26 @@ class HierarchyService extends Component
         }
 
         // Try to find existing parent entry in the database
+        Craft::info("Searching for parent slug '{$parentSlug}' in database", __METHOD__);
+
+        // Search for parent entry - use current site to properly populate relationships
         $parentEntry = Entry::find()
             ->slug($parentSlug)
+            ->status(null)
             ->one();
 
         if ($parentEntry) {
             $parentId = $parentEntry->id;
             $this->slugToEntryCache[$parentSlug] = $parentId;
-            Craft::info("Found existing parent '{$parentSlug}' (ID: {$parentId}) for entry '{$rowInfo['slug']}'", __METHOD__);
+            $sectionHandle = $parentEntry->section ? $parentEntry->section->handle : 'unknown';
+            $sectionId = $parentEntry->sectionId;
+            $siteId = $parentEntry->siteId;
+            Craft::info("Found existing parent '{$parentSlug}' (ID: {$parentId}, Section: {$sectionHandle} [{$sectionId}], Site: {$siteId}) for entry '{$rowInfo['slug']}'", __METHOD__);
             return $parentId;
         }
 
-        Craft::warning("Parent entry '{$parentSlug}' not found for entry '{$rowInfo['slug']}'", __METHOD__);
+        // Parent not found - treat as top-level entry instead of failing
+        Craft::warning("Parent entry '{$parentSlug}' not found in database for entry '{$rowInfo['slug']}' - treating as top-level", __METHOD__);
         return null;
     }
 

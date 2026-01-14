@@ -73,7 +73,12 @@ class CsvParserService extends Component
                 'required' => true,
             ],
             'entry.heroTitle' => [
-                'label' => Craft::t('simple-seo-import', 'Hero Title'),
+                'label' => Craft::t('simple-seo-import', 'Hero Title (H1)'),
+                'type' => 'text',
+                'required' => false,
+            ],
+            'entry.pageHeader' => [
+                'label' => Craft::t('simple-seo-import', 'Page Header (H1)'),
                 'type' => 'text',
                 'required' => false,
             ],

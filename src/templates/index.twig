@@ -151,7 +151,11 @@
                             <div class="field-drop-zone">{{ 'Drop field here'|t('simple-seo-import') }}</div>
                         </div>
                         <div class="target-field" data-target="entry.heroTitle">
-                            <span class="field-label">{{ 'Hero Title'|t('simple-seo-import') }}</span>
+                            <span class="field-label">{{ 'Hero Title (H1)'|t('simple-seo-import') }}</span>
+                            <div class="field-drop-zone">{{ 'Drop field here'|t('simple-seo-import') }}</div>
+                        </div>
+                        <div class="target-field" data-target="entry.pageHeader">
+                            <span class="field-label">{{ 'Page Header (H1)'|t('simple-seo-import') }}</span>
                             <div class="field-drop-zone">{{ 'Drop field here'|t('simple-seo-import') }}</div>
                         </div>
                         <div class="target-field" data-target="seomatic.meta.title">
@@ -204,6 +208,33 @@
     <div class="loading-overlay hidden" id="loading-overlay">
         <div class="spinner"></div>
         <p>{{ 'Processing...'|t('simple-seo-import') }}</p>
+    </div>
+
+    <!-- Import Report Modal -->
+    <div class="import-report-overlay hidden" id="import-report-overlay">
+        <div class="import-report-modal">
+            <div class="import-report-header">
+                <h2 id="import-report-title">{{ 'Import Report'|t('simple-seo-import') }}</h2>
+                <button type="button" class="close-modal" id="close-import-report">&times;</button>
+            </div>
+
+            <div class="import-report-summary" id="import-report-summary">
+                <!-- Summary will be populated here -->
+            </div>
+
+            <div class="import-report-details" id="import-report-details">
+                <!-- Details will be populated here -->
+            </div>
+
+            <div class="import-report-footer">
+                <button type="button" class="btn secondary" id="download-error-report">
+                    {{ 'Download Error Report'|t('simple-seo-import') }}
+                </button>
+                <button type="button" class="btn submit" id="close-report-btn">
+                    {{ 'Close'|t('simple-seo-import') }}
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -782,6 +813,177 @@
 .hidden {
     display: none !important;
 }
+
+/* Import Report Modal */
+.import-report-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 1rem;
+}
+
+.import-report-modal {
+    background: white;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 800px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.import-report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e3e5e8;
+}
+
+.import-report-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #2c3e50;
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: #8f98a3;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.close-modal:hover {
+    color: #2c3e50;
+    transform: scale(1.1);
+}
+
+.import-report-summary {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e3e5e8;
+}
+
+.import-report-summary.success {
+    background: #f0fdf4;
+    border-left: 4px solid #10b981;
+}
+
+.import-report-summary.error {
+    background: #fef2f2;
+    border-left: 4px solid #ef4444;
+}
+
+.import-report-summary.warning {
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+}
+
+.import-stats {
+    display: flex;
+    gap: 2rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.import-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.import-stat-label {
+    font-size: 0.875rem;
+    color: #8f98a3;
+    font-weight: 500;
+}
+
+.import-stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.import-stat-value.success {
+    color: #10b981;
+}
+
+.import-stat-value.error {
+    color: #ef4444;
+}
+
+.import-report-details {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+.import-report-details h3 {
+    margin: 0 0 1rem 0;
+    color: #4a5568;
+    font-size: 1.125rem;
+}
+
+.error-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.error-item {
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background: #f7fafc;
+    border-left: 3px solid #ef4444;
+    border-radius: 4px;
+}
+
+.error-item:last-child {
+    margin-bottom: 0;
+}
+
+.error-row {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.25rem;
+}
+
+.error-message {
+    color: #4a5568;
+    font-size: 0.875rem;
+}
+
+.no-errors-message {
+    color: #10b981;
+    font-weight: 500;
+    padding: 1rem;
+    background: #f0fdf4;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.import-report-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: 1px solid #e3e5e8;
+}
 </style>
 
 <script>
@@ -1081,18 +1283,21 @@ document.addEventListener('DOMContentLoaded', function() {
         
         checkMappingComplete() {
             const hasBaseEntry = this.hasBaseEntry();
-            const requiredFields = ['hierarchy.address', 'entry.slug', 'entry.title', 'entry.heroTitle', 'seomatic.meta.title', 'seomatic.meta.description'];
+            const requiredFields = ['hierarchy.address', 'entry.slug', 'entry.title', 'seomatic.meta.title', 'seomatic.meta.description'];
             const mappedFields = Object.values(this.fieldMappings);
             const allFieldsMapped = requiredFields.every(field => mappedFields.includes(field));
-            
+            // At least one H1 field (heroTitle OR pageHeader) must be mapped
+            const hasH1Field = mappedFields.includes('entry.heroTitle') || mappedFields.includes('entry.pageHeader');
+
             console.log('Checking mapping complete:', {
                 hasBaseEntry,
                 allFieldsMapped,
+                hasH1Field,
                 mappedFields,
                 fieldMappings: this.fieldMappings
             });
-            
-            if (hasBaseEntry && allFieldsMapped) {
+
+            if (hasBaseEntry && allFieldsMapped && hasH1Field) {
                 this.hideValidationError();
             }
             // Don't disable button - let validation happen on click
@@ -1109,17 +1314,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else if (this.currentStep === 2) {
                 const hasBaseEntry = this.hasBaseEntry();
-                const requiredFields = ['hierarchy.address', 'entry.slug', 'entry.title', 'entry.heroTitle', 'seomatic.meta.title', 'seomatic.meta.description'];
+                const requiredFields = ['hierarchy.address', 'entry.slug', 'entry.title', 'seomatic.meta.title', 'seomatic.meta.description'];
                 const mappedFields = Object.values(this.fieldMappings);
                 const allFieldsMapped = requiredFields.every(field => mappedFields.includes(field));
-                
+                // At least one H1 field (heroTitle OR pageHeader) must be mapped
+                const hasH1Field = mappedFields.includes('entry.heroTitle') || mappedFields.includes('entry.pageHeader');
+
                 if (!hasBaseEntry) {
                     this.showValidationError('Please select a base entry before continuing.');
                     return;
                 }
-                
+
                 if (!allFieldsMapped) {
                     this.showValidationError('Please map all required fields before continuing.');
+                    return;
+                }
+
+                if (!hasH1Field) {
+                    this.showValidationError('Please map either Hero Title or Page Header before continuing.');
                     return;
                 }
             }
@@ -1266,14 +1478,15 @@ document.addEventListener('DOMContentLoaded', function() {
             
             let html = '';
             entries.forEach(entry => {
-                // Strip HTML tags from heroTitle to show just the text content
+                // Strip HTML tags from heroTitle and pageHeader to show just the text content
                 const heroTitleText = entry.heroTitle ? entry.heroTitle.replace(/<[^>]*>/g, '') : '';
-                
+                const pageHeaderText = entry.pageHeader ? entry.pageHeader.replace(/<[^>]*>/g, '') : '';
+
                 // Calculate indentation based on depth
                 const depth = entry.depth || 0;
                 const indentLevel = Math.max(0, depth - 1); // Subtract 1 so top-level entries have no indent
                 const indentPx = indentLevel * 60; // 60px per level for more visible indentation
-                
+
                 // Create hierarchy indicator
                 let hierarchyInfo = '';
                 if (depth > 1 && entry.parentSlug) {
@@ -1283,7 +1496,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (depth === 0) {
                     hierarchyInfo = `<p class="hierarchy-info"><span class="depth-indicator">Root Level</span></p>`;
                 }
-                
+
                 html += `
                     <div class="preview-entry hierarchy-entry" style="margin-left: ${indentPx}px;" data-depth="${depth}">
                         <div class="entry-header">
@@ -1294,6 +1507,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <p><strong>Slug:</strong> ${entry.slug}</p>
                             ${entry.url ? `<p><strong>URL:</strong> ${entry.url}</p>` : ''}
                             <p><strong>Hero Title:</strong> ${heroTitleText}</p>
+                            <p><strong>Page Header:</strong> ${pageHeaderText}</p>
                             <p><strong>SEO Title:</strong> ${entry.seoTitle}</p>
                             <p><strong>SEO Description:</strong> ${entry.seoDescription}</p>
                         </div>
@@ -1310,13 +1524,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Please select a base entry');
                 return;
             }
-            
+
             if (!confirm('Are you sure you want to import all entries? This action cannot be undone.')) {
                 return;
             }
-            
+
             this.showLoading();
-            
+
             fetch('{{ actionUrl('simple-seo-import/import/import') }}', {
                 method: 'POST',
                 headers: {
@@ -1330,23 +1544,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     skipFirstRow: document.getElementById('skip-first-row').checked
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Import response received:', response);
+                return response.json();
+            })
             .then(data => {
+                console.log('Import data:', data);
                 this.hideLoading();
-                if (data.success) {
-                    alert(`Import completed! ${data.importedCount} entries imported successfully.`);
-                    location.reload();
-                } else {
-                    alert('Import failed: ' + (data.message || 'Unknown error'));
-                    if (data.errors && data.errors.length > 0) {
-                        console.error('Import errors:', data.errors);
-                    }
-                }
+                this.showImportReport(data);
             })
             .catch(error => {
                 this.hideLoading();
-                console.error('Error:', error);
-                alert('Error performing import');
+                console.error('Import error:', error);
+                this.showImportReport({
+                    success: false,
+                    message: 'Network error: ' + error.message,
+                    importedCount: 0,
+                    errors: ['Failed to connect to the server. Please try again.']
+                });
             });
         },
         
@@ -1399,9 +1614,168 @@ document.addEventListener('DOMContentLoaded', function() {
             if (errorElement) {
                 errorElement.classList.add('hidden');
             }
+        },
+
+        showImportReport(data) {
+            console.log('showImportReport called with data:', data);
+
+            const overlay = document.getElementById('import-report-overlay');
+            const summaryEl = document.getElementById('import-report-summary');
+            const detailsEl = document.getElementById('import-report-details');
+
+            console.log('Modal elements found:', {
+                overlay: !!overlay,
+                summaryEl: !!summaryEl,
+                detailsEl: !!detailsEl
+            });
+
+            // Safe access to csvData with proper null checks
+            // csvData structure: { success, headers, previewData, totalRows }
+            const totalRows = this.csvData?.totalRows || 0;
+            const skipFirstRow = document.getElementById('skip-first-row')?.checked || false;
+            const expectedTotal = skipFirstRow && totalRows > 0 ? totalRows - 1 : totalRows;
+            const importedCount = data.importedCount || 0;
+            const failedCount = expectedTotal - importedCount;
+            const errors = data.errors || [];
+
+            console.log('Calculated stats:', {
+                totalRows,
+                skipFirstRow,
+                expectedTotal,
+                importedCount,
+                failedCount,
+                errorCount: errors.length
+            });
+
+            // Determine overall status
+            let statusClass = 'success';
+            let statusMessage = 'Import Completed Successfully';
+            if (failedCount > 0 && importedCount === 0) {
+                statusClass = 'error';
+                statusMessage = 'Import Failed';
+            } else if (failedCount > 0) {
+                statusClass = 'warning';
+                statusMessage = 'Import Completed with Errors';
+            }
+
+            // Build summary HTML
+            summaryEl.className = 'import-report-summary ' + statusClass;
+            summaryEl.innerHTML = `
+                <h3 style="margin: 0 0 0.5rem 0; color: #2c3e50;">${statusMessage}</h3>
+                <p style="margin: 0; color: #4a5568;">${data.message || 'Import process completed'}</p>
+                <div class="import-stats">
+                    <div class="import-stat">
+                        <span class="import-stat-label">Total Rows</span>
+                        <span class="import-stat-value">${expectedTotal}</span>
+                    </div>
+                    <div class="import-stat">
+                        <span class="import-stat-label">Successfully Imported</span>
+                        <span class="import-stat-value success">${importedCount}</span>
+                    </div>
+                    ${failedCount > 0 ? `
+                    <div class="import-stat">
+                        <span class="import-stat-label">Failed</span>
+                        <span class="import-stat-value error">${failedCount}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            // Build details HTML
+            if (errors.length > 0) {
+                let errorListHtml = '<ul class="error-list">';
+                errors.forEach(error => {
+                    errorListHtml += `
+                        <li class="error-item">
+                            <div class="error-message">${this.escapeHtml(error)}</div>
+                        </li>
+                    `;
+                });
+                errorListHtml += '</ul>';
+
+                detailsEl.innerHTML = `
+                    <h3>Error Details</h3>
+                    ${errorListHtml}
+                `;
+            } else {
+                detailsEl.innerHTML = `
+                    <div class="no-errors-message">
+                        All entries were imported successfully! No errors to report.
+                    </div>
+                `;
+            }
+
+            // Store report data for download
+            this.lastImportReport = data;
+
+            // Show modal
+            overlay.classList.remove('hidden');
+
+            // Setup close handlers
+            document.getElementById('close-import-report').onclick = () => {
+                this.closeImportReport(data.success && importedCount > 0);
+            };
+            document.getElementById('close-report-btn').onclick = () => {
+                this.closeImportReport(data.success && importedCount > 0);
+            };
+            document.getElementById('download-error-report').onclick = () => {
+                this.downloadErrorReport(data);
+            };
+
+            // Hide download button if no errors
+            if (errors.length === 0) {
+                document.getElementById('download-error-report').style.display = 'none';
+            } else {
+                document.getElementById('download-error-report').style.display = 'inline-block';
+            }
+        },
+
+        closeImportReport(shouldReload) {
+            document.getElementById('import-report-overlay').classList.add('hidden');
+            if (shouldReload) {
+                location.reload();
+            }
+        },
+
+        downloadErrorReport(data) {
+            const totalRows = this.csvData?.totalRows || 0;
+            const skipFirstRow = document.getElementById('skip-first-row')?.checked || false;
+            const expectedTotal = skipFirstRow && totalRows > 0 ? totalRows - 1 : totalRows;
+
+            let reportText = '=== Import Error Report ===\n\n';
+            reportText += `Date: ${new Date().toLocaleString()}\n`;
+            reportText += `Total Rows: ${expectedTotal}\n`;
+            reportText += `Successfully Imported: ${data.importedCount || 0}\n`;
+            reportText += `Failed: ${expectedTotal - (data.importedCount || 0)}\n\n`;
+
+            if (data.errors && data.errors.length > 0) {
+                reportText += '=== Errors ===\n\n';
+                data.errors.forEach((error, index) => {
+                    reportText += `${index + 1}. ${error}\n`;
+                });
+            } else {
+                reportText += 'No errors reported.\n';
+            }
+
+            // Create and download file
+            const blob = new Blob([reportText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `import-error-report-${Date.now()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        },
+
+        escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     };
-    
+
     csvImporter.init();
 });
 </script>
